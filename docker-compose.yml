@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: umd-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: universal-media-downloader
+    networks:
+      - umd-network
+
+  # Backend API Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: umd-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongodb:27017/universal-media-downloader
+      JWT_SECRET: change_this_to_a_secure_random_string
+      JWT_EXPIRE: 7d
+      CLIENT_URL: http://localhost:3000
+      DOWNLOAD_DIR: ./downloads
+      FILE_CLEANUP_INTERVAL_MINUTES: 30
+      FILE_MAX_AGE_MINUTES: 60
+    depends_on:
+      - mongodb
+    volumes:
+      - server-downloads:/app/downloads
+    networks:
+      - umd-network
+
+  # Frontend Client
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: umd-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    networks:
+      - umd-network
+
+volumes:
+  mongo-data:
+  server-downloads:
+
+networks:
+  umd-network:
+    driver: bridge
