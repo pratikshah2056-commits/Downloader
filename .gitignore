@@ -45,3 +45,8 @@ server/downloads/
 *.mp3
 *.webm
 *.m4a
+
+# Credentials & Binaries
+cookies.txt
+server/cookies.txt
+server/bin/
