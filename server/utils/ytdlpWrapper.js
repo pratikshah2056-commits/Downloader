@@ -22,18 +22,34 @@ const TEMP_COOKIES_PATH = path.resolve(__dirname, '../bin/cookies.txt');
 let binaryPathPromise = null;
 
 const getCookieArg = () => {
+  // 1. Check YOUTUBE_COOKIES_PATH env var
+  if (process.env.YOUTUBE_COOKIES_PATH) {
+    if (fs.existsSync(process.env.YOUTUBE_COOKIES_PATH)) {
+      console.log(`🍪 Using cookies from YOUTUBE_COOKIES_PATH: ${process.env.YOUTUBE_COOKIES_PATH}`);
+      return ['--cookies', process.env.YOUTUBE_COOKIES_PATH];
+    } else {
+      console.warn(`⚠️ YOUTUBE_COOKIES_PATH configured but file not found: ${process.env.YOUTUBE_COOKIES_PATH}`);
+    }
+  }
+
+  // 2. Check local cookies.txt in server root
   if (fs.existsSync(COOKIES_PATH)) {
+    console.log(`🍪 Using local cookies from: ${COOKIES_PATH}`);
     return ['--cookies', COOKIES_PATH];
   }
+
+  // 3. Check YT_COOKIES_CONTENT env var (dynamic fallback)
   if (process.env.YT_COOKIES_CONTENT) {
     if (!fs.existsSync(TEMP_COOKIES_PATH)) {
       if (!fs.existsSync(BIN_DIR)) {
         fs.mkdirSync(BIN_DIR, { recursive: true });
       }
       fs.writeFileSync(TEMP_COOKIES_PATH, process.env.YT_COOKIES_CONTENT, 'utf8');
+      console.log(`🍪 Created temporary cookies file from YT_COOKIES_CONTENT.`);
     }
     return ['--cookies', TEMP_COOKIES_PATH];
   }
+
   return [];
 };
 
@@ -144,12 +160,22 @@ const getExtractorArgs = (url) => {
   try {
     const platform = detectPlatform(url);
     if (platform === 'youtube') {
-      return ['--extractor-args', 'youtube:player_client=android,web'];
+      return ['--extractor-args', 'youtube:player_client=android'];
     }
   } catch (err) {
     // Ignore parsing errors
   }
   return [];
+};
+
+const isBotBlockError = (errMessage) => {
+  const msg = (errMessage || '').toLowerCase();
+  return (
+    (msg.includes('confirm you') && msg.includes('not a bot')) ||
+    msg.includes('sign in to confirm') ||
+    msg.includes('cookies-from-browser') ||
+    msg.includes('use --cookies')
+  );
 };
 
 /**
@@ -188,7 +214,11 @@ const getMediaInfo = (url) => {
 
       execFile(binaryPath, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
         if (error) {
-          console.error('yt-dlp error:', stderr || error.message);
+          const errOutput = stderr || error.message;
+          console.error('yt-dlp error:', errOutput);
+          if (isBotBlockError(errOutput)) {
+            return reject(new Error("YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS."));
+          }
           return reject(new Error('Failed to fetch media information. Please check the URL.'));
         }
 
@@ -301,6 +331,9 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
       process.on('close', (code) => {
         if (code !== 0) {
           console.error('yt-dlp download error:', stderr);
+          if (isBotBlockError(stderr)) {
+            return reject(new Error("YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS."));
+          }
           return reject(new Error('Failed to download video.'));
         }
 
@@ -392,6 +425,9 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
       process.on('close', (code) => {
         if (code !== 0) {
           console.error('yt-dlp audio error:', stderr);
+          if (isBotBlockError(stderr)) {
+            return reject(new Error("YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS."));
+          }
           return reject(new Error('Failed to download audio.'));
         }
 

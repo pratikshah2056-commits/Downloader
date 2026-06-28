@@ -36,6 +36,7 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 // ─── Security Middleware ──────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:3000',
+  'https://downloader-seven-xi.vercel.app',
 ];
 
 if (process.env.CLIENT_URL) {
@@ -121,6 +123,16 @@ app.use(errorHandler);
 // ─── Start Server ─────────────────────────────────────────────────
 const startServer = async () => {
   try {
+    // Validate required production environment variables
+    if (process.env.NODE_ENV === 'production') {
+      const requiredEnv = ['MONGO_URI', 'JWT_SECRET'];
+      const missingEnv = requiredEnv.filter(key => !process.env[key]);
+      if (missingEnv.length > 0) {
+        console.error(`\n❌ Startup Error: Missing production environment variables: ${missingEnv.join(', ')}\n`);
+        process.exit(1);
+      }
+    }
+
     // Connect to MongoDB
     await connectDB();
 

@@ -94,7 +94,8 @@ const downloadVideo = async (req, res, next) => {
     // Clean up file on error
     if (filePath) ytdlp.deleteFile(filePath);
 
-    res.status(500).json({
+    const isBot = error.message.includes('YouTube blocked anonymous cloud requests');
+    res.status(isBot ? 400 : 500).json({
       success: false,
       message: error.message || 'Failed to download video.',
     });
@@ -173,7 +174,8 @@ const downloadAudio = async (req, res, next) => {
   } catch (error) {
     if (filePath) ytdlp.deleteFile(filePath);
 
-    res.status(500).json({
+    const isBot = error.message.includes('YouTube blocked anonymous cloud requests');
+    res.status(isBot ? 400 : 500).json({
       success: false,
       message: error.message || 'Failed to download audio.',
     });

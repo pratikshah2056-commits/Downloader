@@ -29,6 +29,25 @@ const register = async (req, res, next) => {
     });
 
     if (existingUser) {
+      // If the existing user is a Google OAuth user (has no password set)
+      if (!existingUser.password) {
+        const token = generateToken(existingUser._id);
+        return res.status(200).json({
+          success: true,
+          message: 'Account already exists. Logged in successfully via Google.',
+          data: {
+            user: {
+              id: existingUser._id,
+              username: existingUser.username,
+              email: existingUser.email,
+              role: existingUser.role,
+              createdAt: existingUser.createdAt,
+            },
+            token,
+          },
+        });
+      }
+
       const field = existingUser.email === email ? 'email' : 'username';
       return res.status(409).json({
         success: false,

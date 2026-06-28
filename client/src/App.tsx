@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
@@ -22,8 +22,7 @@ import Upcoming from './pages/Upcoming';
 
 import AdminDashboard from './pages/AdminDashboard';
 
-// Google OAuth Client ID config (fallback to dummy for dev testing)
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '340196864705-9cjpo5bcjqoeq16e88qanr6ohse2aafc.apps.googleusercontent.com';
+
 
 // Guard for administrator-only routes
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -42,10 +41,9 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const App: React.FC = () => {
   return (
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <ThemeProvider>
-        <AuthProvider>
-          <Router>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
             <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
               <Navbar />
 
@@ -110,10 +108,9 @@ const App: React.FC = () => {
                 },
               }}
             />
-          </Router>
-        </AuthProvider>
-      </ThemeProvider>
-    </GoogleOAuthProvider>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

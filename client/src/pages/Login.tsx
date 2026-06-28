@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
-import { GoogleLogin } from '@react-oauth/google';
+import GoogleLoginButton from '../components/GoogleLoginButton';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/authService';
@@ -30,10 +30,9 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
+  const handleGoogleSuccess = async (credential: string) => {
     setIsLoading(true);
     try {
-      const { credential } = credentialResponse;
       const response = await authService.googleAuth(credential);
       login(response.data.token, response.data.user);
       toast.success('Signed in with Google!');
@@ -157,12 +156,9 @@ const Login: React.FC = () => {
 
         {/* Google Login Component */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center' }}>
-          <GoogleLogin
+          <GoogleLoginButton
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
-            shape="pill"
-            theme="filled_blue"
-            width="280px"
           />
         </div>
 
