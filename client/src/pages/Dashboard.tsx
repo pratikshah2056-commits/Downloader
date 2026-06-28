@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { FiDownload, FiTrendingUp } from 'react-icons/fi';
 import { 
   FaYoutube, FaFacebook, FaInstagram, FaTiktok, FaTwitter, 
   FaVimeo, FaReddit, FaSoundcloud, FaTwitch, FaPinterest, FaLinkedin 
@@ -9,7 +9,23 @@ import toast from 'react-hot-toast';
 import URLInput from '../components/URLInput';
 import MediaPreview from '../components/MediaPreview';
 import DownloadProgress from '../components/DownloadProgress';
-import { downloadService, type MediaInfo, triggerBlobDownload } from '../services/downloadService';
+import HistoryTable from '../components/HistoryTable';
+import { useAuth } from '../contexts/AuthContext';
+import { downloadService, type MediaInfo, type DownloadStats, triggerBlobDownload } from '../services/downloadService';
+
+const platformIcons: Record<string, React.ReactNode> = {
+  youtube: <FaYoutube />,
+  facebook: <FaFacebook />,
+  instagram: <FaInstagram />,
+  tiktok: <FaTiktok />,
+  twitter: <FaTwitter />,
+  vimeo: <FaVimeo />,
+  reddit: <FaReddit />,
+  soundcloud: <FaSoundcloud />,
+  twitch: <FaTwitch />,
+  pinterest: <FaPinterest />,
+  linkedin: <FaLinkedin />,
+};
 
 const platformsList = [
   { icon: <FaYoutube size={20} />, name: 'YouTube', color: '#ff0000', bg: 'rgba(255, 0, 0, 0.1)', url: 'https://youtube.com' },
@@ -26,12 +42,26 @@ const platformsList = [
 ];
 
 const Dashboard: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [stats, setStats] = useState<DownloadStats | null>(null);
   const [currentUrl, setCurrentUrl] = useState('');
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const data = await downloadService.getStats();
+      setStats(data);
+    } catch {
+      // Stats are optional, silently fail
+    }
+  };
 
   const handleAnalyze = async (url: string) => {
     setIsAnalyzing(true);
@@ -48,16 +78,6 @@ const Dashboard: React.FC = () => {
       setIsAnalyzing(false);
     }
   };
-
-  useEffect(() => {
-    const urlParam = searchParams.get('url');
-    if (urlParam) {
-      const decodedUrl = decodeURIComponent(urlParam);
-      handleAnalyze(decodedUrl);
-      // Clean up search params after reading
-      setSearchParams({}, { replace: true });
-    }
-  }, [searchParams]);
 
   const handleDownloadVideo = async (format: string, quality: string) => {
     if (!currentUrl) return;
@@ -77,6 +97,7 @@ const Dashboard: React.FC = () => {
       triggerBlobDownload(response as any, `${safeName}.${format}`);
 
       toast.success('Download complete!');
+      loadStats();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Download failed');
     } finally {
@@ -105,6 +126,7 @@ const Dashboard: React.FC = () => {
       triggerBlobDownload(response as any, `${safeName}.${format}`);
 
       toast.success('Audio download complete!');
+      loadStats();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Audio download failed');
     } finally {
@@ -112,6 +134,16 @@ const Dashboard: React.FC = () => {
         setIsDownloading(false);
         setDownloadProgress(0);
       }, 1000);
+    }
+  };
+
+  const handleDeleteRecent = async (id: string) => {
+    try {
+      await downloadService.deleteHistoryItem(id);
+      loadStats();
+      toast.success('Removed from history');
+    } catch {
+      toast.error('Failed to delete entry');
     }
   };
 
@@ -124,10 +156,55 @@ const Dashboard: React.FC = () => {
         style={{ marginBottom: '2rem' }}
       >
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.25rem' }}>
-          Universal <span className="gradient-text">Downloader</span>
+          Welcome back, <span className="gradient-text">{user?.username}</span>
         </h1>
         <p style={{ color: 'var(--color-text-muted)' }}>Paste a URL to get started</p>
       </motion.div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2.5rem',
+          }}
+        >
+          <div className="glass-card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '2.75rem', height: '2.75rem', borderRadius: 'var(--radius-md)',
+              background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-accent-primary)', fontSize: '1.25rem',
+            }}>
+              <FiDownload />
+            </div>
+            <div>
+              <p style={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1 }}>{stats.totalDownloads}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Total Downloads</p>
+            </div>
+          </div>
+
+          {stats.platformStats.slice(0, 3).map((ps) => (
+            <div key={ps.platform} className="glass-card" style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{
+                width: '2.75rem', height: '2.75rem', borderRadius: 'var(--radius-md)',
+                background: 'var(--color-bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.25rem',
+              }}>
+                {platformIcons[ps.platform] || <FiTrendingUp />}
+              </div>
+              <div>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1 }}>{ps.count}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'capitalize' }}>{ps.platform}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      )}
 
       {/* URL Input */}
       <motion.div
@@ -203,6 +280,24 @@ const Dashboard: React.FC = () => {
           onDownloadAudio={handleDownloadAudio}
           isDownloading={isDownloading}
         />
+      )}
+
+      {/* Recent Downloads */}
+      {stats && stats.recentDownloads.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          style={{ marginTop: '3rem' }}
+        >
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '-0.01em' }}>
+            Recent Downloads
+          </h2>
+          <HistoryTable
+            downloads={stats.recentDownloads}
+            onDelete={handleDeleteRecent}
+          />
+        </motion.div>
       )}
     </div>
   );

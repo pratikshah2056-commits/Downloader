@@ -8,8 +8,12 @@ const {
   deleteHistoryItem,
   getStats,
 } = require('../controllers/downloadController');
+const auth = require('../middleware/auth');
 const { downloadLimiter } = require('../middleware/rateLimiter');
 const { urlRules, downloadRules, audioRules, historyIdRules, validate } = require('../middleware/validator');
+
+// All download routes require authentication
+router.use(auth);
 
 // Media info
 router.post('/info', urlRules, validate, getMediaInfo);

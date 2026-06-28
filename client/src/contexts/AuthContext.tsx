@@ -24,24 +24,44 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load auth state from localStorage on mount
   useEffect(() => {
-    setIsLoading(false);
+    try {
+      const storedToken = localStorage.getItem('umd_token');
+      const storedUser = localStorage.getItem('umd_user');
+
+      if (storedToken && storedUser) {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error('Error loading auth state:', error);
+      localStorage.removeItem('umd_token');
+      localStorage.removeItem('umd_user');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const login = useCallback((newToken: string, newUser: User) => {
     setToken(newToken);
     setUser(newUser);
+    localStorage.setItem('umd_token', newToken);
+    localStorage.setItem('umd_user', JSON.stringify(newUser));
   }, []);
 
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
+    localStorage.removeItem('umd_token');
+    localStorage.removeItem('umd_user');
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
+    localStorage.setItem('umd_user', JSON.stringify(updatedUser));
   }, []);
 
   return (

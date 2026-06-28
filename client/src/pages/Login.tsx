@@ -22,11 +22,7 @@ const Login: React.FC = () => {
       const response = await authService.login({ email, password });
       login(response.data.token, response.data.user);
       toast.success('Welcome back!');
-      if (response.data.user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate('/dashboard');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {

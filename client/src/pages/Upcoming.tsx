@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FiClock, FiStar, FiMonitor, FiCompass } from 'react-icons/fi';
+import { FiClock, FiStar, FiMonitor, FiCpu, FiCompass, FiVolume2 } from 'react-icons/fi';
 
 const Upcoming: React.FC = () => {
   const upcomingFeatures = [
@@ -137,7 +137,7 @@ const Upcoming: React.FC = () => {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
-                {sec.items.map((item) => (
+                {sec.items.map((item, itemIdx) => (
                   <div
                     key={item.title}
                     style={{
