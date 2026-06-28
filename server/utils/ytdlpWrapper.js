@@ -21,37 +21,84 @@ const COOKIES_PATH = path.resolve(__dirname, '../cookies.txt');
 const TEMP_COOKIES_PATH = path.resolve(__dirname, '../bin/cookies.txt');
 let binaryPathPromise = null;
 
-const getCookieArg = () => {
-  // 1. Check COOKIES_PATH or YOUTUBE_COOKIES_PATH env var
-  const configCookiesPath = process.env.COOKIES_PATH || process.env.YOUTUBE_COOKIES_PATH;
+const isValidNetscapeCookieContent = (content) => {
+  if (!content || typeof content !== 'string') return false;
+  return content.trim().startsWith('# Netscape HTTP Cookie File');
+};
+
+const isValidCookiesFile = (filePath) => {
+  if (!filePath || !fs.existsSync(filePath)) return false;
+  try {
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) return false;
+    const content = fs.readFileSync(filePath, 'utf8');
+    return isValidNetscapeCookieContent(content);
+  } catch {
+    return false;
+  }
+};
+
+const getCookiePath = () => {
+  // 1. Check path-based env variables
+  const configCookiesPath = process.env.COOKIES_PATH || process.env.YOUTUBE_COOKIES_PATH || process.env.COOKIE_FILE;
   if (configCookiesPath) {
-    if (fs.existsSync(configCookiesPath)) {
-      console.log(`🍪 Using cookies from config: ${configCookiesPath}`);
-      return ['--cookies', configCookiesPath];
+    if (isValidCookiesFile(configCookiesPath)) {
+      console.log(`🍪 Cookies verified at custom path: ${configCookiesPath}`);
+      return configCookiesPath;
     } else {
-      console.warn(`⚠️ Cookies path configured but file not found: ${configCookiesPath}`);
+      console.warn(`⚠️ Cookies path environment variable is configured but invalid or missing: ${configCookiesPath}`);
     }
   }
 
   // 2. Check local cookies.txt in server root
-  if (fs.existsSync(COOKIES_PATH)) {
-    console.log(`🍪 Using local cookies from: ${COOKIES_PATH}`);
-    return ['--cookies', COOKIES_PATH];
+  if (isValidCookiesFile(COOKIES_PATH)) {
+    console.log(`🍪 Cookies verified at local path: ${COOKIES_PATH}`);
+    return COOKIES_PATH;
   }
 
-  // 3. Check COOKIES_CONTENT or YT_COOKIES_CONTENT env var (dynamic fallback)
-  const cookiesContent = process.env.COOKIES_CONTENT || process.env.YT_COOKIES_CONTENT;
+  // 3. Check content-based env variables
+  const cookiesContent = process.env.COOKIES_CONTENT || 
+                         process.env.YT_COOKIES_CONTENT || 
+                         process.env.COOKIES || 
+                         process.env.COOKIES_TXT || 
+                         process.env.YOUTUBE_COOKIES;
+
   if (cookiesContent) {
-    if (!fs.existsSync(TEMP_COOKIES_PATH)) {
-      if (!fs.existsSync(BIN_DIR)) {
-        fs.mkdirSync(BIN_DIR, { recursive: true });
+    if (isValidNetscapeCookieContent(cookiesContent)) {
+      let shouldWrite = true;
+      if (fs.existsSync(TEMP_COOKIES_PATH)) {
+        try {
+          const currentContent = fs.readFileSync(TEMP_COOKIES_PATH, 'utf8');
+          if (currentContent === cookiesContent) {
+            shouldWrite = false;
+          }
+        } catch {
+          shouldWrite = true;
+        }
       }
-      fs.writeFileSync(TEMP_COOKIES_PATH, cookiesContent, 'utf8');
-      console.log(`🍪 Created temporary cookies file from environment variable content.`);
+
+      if (shouldWrite) {
+        if (!fs.existsSync(BIN_DIR)) {
+          fs.mkdirSync(BIN_DIR, { recursive: true });
+        }
+        fs.writeFileSync(TEMP_COOKIES_PATH, cookiesContent, 'utf8');
+        console.log(`🍪 Created/updated temporary cookies file from environment variable content.`);
+      }
+      return TEMP_COOKIES_PATH;
+    } else {
+      console.warn(`⚠️ Cookie content environment variable detected but is not a valid Netscape format (it may contain a file name or bad data). Skipping.`);
     }
-    return ['--cookies', TEMP_COOKIES_PATH];
   }
 
+  console.log(`💡 yt-dlp is running without cookies.`);
+  return null;
+};
+
+const getCookieArg = () => {
+  const cookiePath = getCookiePath();
+  if (cookiePath && fs.existsSync(cookiePath)) {
+    return ['--cookies', cookiePath];
+  }
   return [];
 };
 
@@ -260,74 +307,89 @@ const getMediaInfo = (url) => {
     try {
       const sanitizedUrl = sanitizeUrl(url);
       const binaryPath = await getBinaryPath();
+      const cookiePath = getCookiePath();
 
-      const args = [
-        '--dump-json',
-        '--no-download',
-        '--no-warnings',
-        '--no-playlist',
-        ...getCookieArg(),
-        ...getExtractorArgs(url),
-        sanitizedUrl,
-      ];
+      const runExtractor = (useCookies) => {
+        const args = [
+          '--dump-json',
+          '--no-download',
+          '--no-warnings',
+          '--no-playlist',
+          ...getExtractorArgs(url),
+          sanitizedUrl,
+        ];
 
-      const startTime = Date.now();
-      execFile(binaryPath, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-        const duration = Date.now() - startTime;
-        console.log(`⏱️ yt-dlp getMediaInfo execution time: ${duration}ms`);
-        if (error) {
-          const errOutput = stderr || error.message;
-          console.error(`❌ yt-dlp info extractor failed [${duration}ms]:`, errOutput);
-          return reject(createStructuredError(errOutput, 'Failed to fetch media information. Please check the URL.'));
+        if (useCookies && cookiePath && fs.existsSync(cookiePath)) {
+          args.unshift('--cookies', cookiePath);
         }
 
-        try {
-          const info = JSON.parse(stdout);
+        const startTime = Date.now();
+        execFile(binaryPath, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+          const duration = Date.now() - startTime;
+          console.log(`⏱️ yt-dlp getMediaInfo execution time: ${duration}ms (used cookies: ${useCookies && !!cookiePath})`);
+          if (error) {
+            const errOutput = stderr || error.message;
+            console.error(`❌ yt-dlp info extractor failed [${duration}ms]:`, errOutput);
+            
+            // Fallback: If we attempted with cookies and it failed, retry WITHOUT cookies!
+            if (useCookies && cookiePath) {
+              console.warn(`🔄 Retrying media extraction WITHOUT cookies due to extraction failure...`);
+              return runExtractor(false);
+            }
 
-          // Extract available formats
-          const formats = (info.formats || [])
-            .filter((f) => f.vcodec !== 'none' || f.acodec !== 'none')
-            .map((f) => ({
-              formatId: f.format_id,
-              ext: f.ext,
-              quality: f.height ? `${f.height}p` : (f.format_note || 'audio'),
-              height: f.height || 0,
-              filesize: f.filesize || f.filesize_approx || 0,
-              hasVideo: f.vcodec !== 'none',
-              hasAudio: f.acodec !== 'none',
-              vcodec: f.vcodec,
-              acodec: f.acodec,
-            }));
+            return reject(createStructuredError(errOutput, 'Failed to fetch media information. Please check the URL.'));
+          }
 
-          // Get unique video qualities
-          const videoQualities = [...new Set(
-            formats
-              .filter((f) => f.hasVideo && f.height > 0)
-              .map((f) => f.height)
-          )]
-            .sort((a, b) => a - b)
-            .map((h) => `${h}p`);
+          try {
+            const info = JSON.parse(stdout);
 
-          const result = {
-            title: info.title || 'Untitled',
-            thumbnail: info.thumbnail || '',
-            duration: info.duration || 0,
-            platform: detectPlatform(url),
-            uploader: info.uploader || info.channel || 'Unknown',
-            viewCount: info.view_count || 0,
-            uploadDate: info.upload_date || '',
-            description: (info.description || '').substring(0, 500),
-            videoQualities,
-            formats,
-            availableVideoFormats: ['mp4', 'webm'],
-            availableAudioFormats: ['mp3', 'm4a'],
-          };
+            // Extract available formats
+            const formats = (info.formats || [])
+              .filter((f) => f.vcodec !== 'none' || f.acodec !== 'none')
+              .map((f) => ({
+                formatId: f.format_id,
+                ext: f.ext,
+                quality: f.height ? `${f.height}p` : (f.format_note || 'audio'),
+                height: f.height || 0,
+                filesize: f.filesize || f.filesize_approx || 0,
+                hasVideo: f.vcodec !== 'none',
+                hasAudio: f.acodec !== 'none',
+                vcodec: f.vcodec,
+                acodec: f.acodec,
+              }));
 
-          resolve(result);
-        } catch (parseError) {
-          reject(new Error('Failed to parse media information.'));
-        }
-      });
+            // Get unique video qualities
+            const videoQualities = [...new Set(
+              formats
+                .filter((f) => f.hasVideo && f.height > 0)
+                .map((f) => f.height)
+            )]
+              .sort((a, b) => a - b)
+              .map((h) => `${h}p`);
+
+            const result = {
+              title: info.title || 'Untitled',
+              thumbnail: info.thumbnail || '',
+              duration: info.duration || 0,
+              platform: detectPlatform(url),
+              uploader: info.uploader || info.channel || 'Unknown',
+              viewCount: info.view_count || 0,
+              uploadDate: info.upload_date || '',
+              description: (info.description || '').substring(0, 500),
+              videoQualities,
+              formats,
+              availableVideoFormats: ['mp4', 'webm'],
+              availableAudioFormats: ['mp3', 'm4a'],
+            };
+
+            resolve(result);
+          } catch (parseError) {
+            reject(new Error('Failed to parse media information.'));
+          }
+        });
+      };
+
+      runExtractor(!!cookiePath);
     } catch (err) {
       reject(err);
     }
@@ -344,6 +406,7 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
       const binaryPath = await getBinaryPath();
       const fileId = uuidv4();
       const outputPath = path.join(DOWNLOAD_DIR, `${fileId}.${format}`);
+      const cookiePath = getCookiePath();
 
       // Build quality filter
       let formatFilter;
@@ -365,64 +428,77 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
         ? outputPath 
         : path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`);
 
-      const args = [
-        '-f', formatFilter,
-        '--no-playlist',
-        '--no-warnings',
-        ...getCookieArg(),
-        ...getExtractorArgs(url),
-        '-o', outputTemplate,
-        sanitizedUrl,
-      ];
+      const runDownload = (useCookies) => {
+        const args = [
+          '-f', formatFilter,
+          '--no-playlist',
+          '--no-warnings',
+          ...getExtractorArgs(url),
+          '-o', outputTemplate,
+          sanitizedUrl,
+        ];
 
-      if (checkFfmpeg()) {
-        args.unshift('--merge-output-format', format);
-      }
-
-      const startTime = Date.now();
-      const process = spawn(binaryPath, args, { timeout: 300000 });
-
-      let stderr = '';
-
-      process.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      process.on('close', (code) => {
-        const duration = Date.now() - startTime;
-        console.log(`⏱️ yt-dlp downloadVideo execution time: ${duration}ms`);
-        if (code !== 0) {
-          console.error(`❌ yt-dlp video download failed [${duration}ms]:`, stderr);
-          return reject(createStructuredError(stderr, 'Failed to download video.'));
+        if (useCookies && cookiePath && fs.existsSync(cookiePath)) {
+          args.unshift('--cookies', cookiePath);
         }
 
-        // Check if file exists
-        if (!fs.existsSync(outputPath)) {
-          // yt-dlp might have added a different extension
-          const possibleFiles = fs.readdirSync(DOWNLOAD_DIR).filter((f) => f.startsWith(fileId));
-          if (possibleFiles.length > 0) {
-            const actualPath = path.join(DOWNLOAD_DIR, possibleFiles[0]);
-            const stats = fs.statSync(actualPath);
-            return resolve({
-              filePath: actualPath,
-              fileName: possibleFiles[0],
-              fileSize: stats.size,
-            });
-          }
-          return reject(new Error('Download completed but file not found.'));
+        if (checkFfmpeg()) {
+          args.unshift('--merge-output-format', format);
         }
 
-        const stats = fs.statSync(outputPath);
-        resolve({
-          filePath: outputPath,
-          fileName: `${fileId}.${format}`,
-          fileSize: stats.size,
+        const startTime = Date.now();
+        const processSpawn = spawn(binaryPath, args, { timeout: 300000 });
+
+        let stderr = '';
+
+        processSpawn.stderr.on('data', (data) => {
+          stderr += data.toString();
         });
-      });
 
-      process.on('error', (error) => {
-        reject(new Error(`Download process error: ${error.message}`));
-      });
+        processSpawn.on('close', (code) => {
+          const duration = Date.now() - startTime;
+          console.log(`⏱️ yt-dlp downloadVideo execution time: ${duration}ms (used cookies: ${useCookies && !!cookiePath})`);
+          if (code !== 0) {
+            console.error(`❌ yt-dlp video download failed [${duration}ms]:`, stderr);
+            
+            // Fallback: Retry without cookies if cookies were used
+            if (useCookies && cookiePath) {
+              console.warn(`🔄 Retrying video download WITHOUT cookies due to download failure...`);
+              return runDownload(false);
+            }
+
+            return reject(createStructuredError(stderr, 'Failed to download video.'));
+          }
+
+          // Check if file exists
+          if (!fs.existsSync(outputPath)) {
+            const possibleFiles = fs.readdirSync(DOWNLOAD_DIR).filter((f) => f.startsWith(fileId));
+            if (possibleFiles.length > 0) {
+              const actualPath = path.join(DOWNLOAD_DIR, possibleFiles[0]);
+              const stats = fs.statSync(actualPath);
+              return resolve({
+                filePath: actualPath,
+                fileName: possibleFiles[0],
+                fileSize: stats.size,
+              });
+            }
+            return reject(new Error('Download completed but file not found.'));
+          }
+
+          const stats = fs.statSync(outputPath);
+          resolve({
+            filePath: outputPath,
+            fileName: `${fileId}.${format}`,
+            fileSize: stats.size,
+          });
+        });
+
+        processSpawn.on('error', (error) => {
+          reject(new Error(`Download process error: ${error.message}`));
+        });
+      };
+
+      runDownload(!!cookiePath);
     } catch (err) {
       reject(err);
     }
@@ -439,6 +515,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
       const binaryPath = await getBinaryPath();
       const fileId = uuidv4();
       const outputPath = path.join(DOWNLOAD_DIR, `${fileId}.${format}`);
+      const cookiePath = getCookiePath();
 
       // Map audio quality parameter
       let qArg = '0'; // best default
@@ -447,76 +524,87 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
       else if (quality === '192' || quality === '192k') qArg = '192K';
       else if (quality === '128' || quality === '128k') qArg = '128K';
 
-      let args;
-      if (!checkFfmpeg()) {
-        // Without FFmpeg: just download best audio stream as-is
-        args = [
-          '-f', 'bestaudio/best',
-          '--no-playlist',
-          '--no-warnings',
-          ...getCookieArg(),
-          ...getExtractorArgs(url),
-          '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
-          sanitizedUrl,
-        ];
-      } else {
-        args = [
-          '-x',
-          '--audio-format', format,
-          '--audio-quality', qArg,
-          '--no-playlist',
-          '--no-warnings',
-          ...getCookieArg(),
-          ...getExtractorArgs(url),
-          '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
-          sanitizedUrl,
-        ];
-      }
-
-      const startTime = Date.now();
-      const process = spawn(binaryPath, args, { timeout: 300000 });
-
-      let stderr = '';
-
-      process.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      process.on('close', (code) => {
-        const duration = Date.now() - startTime;
-        console.log(`⏱️ yt-dlp downloadAudio execution time: ${duration}ms`);
-        if (code !== 0) {
-          console.error(`❌ yt-dlp audio download failed [${duration}ms]:`, stderr);
-          return reject(createStructuredError(stderr, 'Failed to download audio.'));
+      const runDownload = (useCookies) => {
+        let args;
+        if (!checkFfmpeg()) {
+          args = [
+            '-f', 'bestaudio/best',
+            '--no-playlist',
+            '--no-warnings',
+            ...getExtractorArgs(url),
+            '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
+            sanitizedUrl,
+          ];
+        } else {
+          args = [
+            '-x',
+            '--audio-format', format,
+            '--audio-quality', qArg,
+            '--no-playlist',
+            '--no-warnings',
+            ...getExtractorArgs(url),
+            '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
+            sanitizedUrl,
+          ];
         }
 
-        // yt-dlp extracts audio and may change extension
-        const possibleFiles = fs.readdirSync(DOWNLOAD_DIR).filter((f) => f.startsWith(fileId));
-        if (possibleFiles.length > 0) {
-          const actualPath = path.join(DOWNLOAD_DIR, possibleFiles[0]);
-          const stats = fs.statSync(actualPath);
-          return resolve({
-            filePath: actualPath,
-            fileName: possibleFiles[0],
-            fileSize: stats.size,
-          });
+        if (useCookies && cookiePath && fs.existsSync(cookiePath)) {
+          args.unshift('--cookies', cookiePath);
         }
 
-        if (fs.existsSync(outputPath)) {
-          const stats = fs.statSync(outputPath);
-          return resolve({
-            filePath: outputPath,
-            fileName: `${fileId}.${format}`,
-            fileSize: stats.size,
-          });
-        }
+        const startTime = Date.now();
+        const processSpawn = spawn(binaryPath, args, { timeout: 300000 });
 
-        reject(new Error('Audio extraction completed but file not found.'));
-      });
+        let stderr = '';
 
-      process.on('error', (error) => {
-        reject(new Error(`Audio process error: ${error.message}`));
-      });
+        processSpawn.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        processSpawn.on('close', (code) => {
+          const duration = Date.now() - startTime;
+          console.log(`⏱️ yt-dlp downloadAudio execution time: ${duration}ms (used cookies: ${useCookies && !!cookiePath})`);
+          if (code !== 0) {
+            console.error(`❌ yt-dlp audio download failed [${duration}ms]:`, stderr);
+            
+            // Fallback: Retry without cookies if cookies were used
+            if (useCookies && cookiePath) {
+              console.warn(`🔄 Retrying audio download WITHOUT cookies due to download failure...`);
+              return runDownload(false);
+            }
+
+            return reject(createStructuredError(stderr, 'Failed to download audio.'));
+          }
+
+          const possibleFiles = fs.readdirSync(DOWNLOAD_DIR).filter((f) => f.startsWith(fileId));
+          if (possibleFiles.length > 0) {
+            const actualPath = path.join(DOWNLOAD_DIR, possibleFiles[0]);
+            const stats = fs.statSync(actualPath);
+            return resolve({
+              filePath: actualPath,
+              fileName: possibleFiles[0],
+              fileSize: stats.size,
+            });
+          }
+
+          if (fs.existsSync(outputPath)) {
+            const stats = fs.statSync(outputPath);
+            return resolve({
+              filePath: outputPath,
+              fileName: `${fileId}.${format}`,
+              fileSize: stats.size,
+            });
+          }
+
+          reject(new Error('Audio extraction completed but file not found.'));
+        });
+
+        processSpawn.on('error', (error) => {
+          reject(new Error(`Audio process error: ${error.message}`));
+        });
+      };
+
+      runDownload(!!cookiePath);
     } catch (err) {
       reject(err);
     }
@@ -542,5 +630,6 @@ module.exports = {
   downloadVideo,
   downloadAudio,
   deleteFile,
+  getCookiePath,
   DOWNLOAD_DIR,
 };

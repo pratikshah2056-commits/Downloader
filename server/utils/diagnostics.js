@@ -27,7 +27,7 @@ const parseCookiesContent = (content) => {
       const rawDomain = parts[0].trim();
       const expiry = parseInt(parts[4]);
       const isExpired = isNaN(expiry) || expiry < now;
-      
+
       if (isExpired) {
         expiredCount++;
       } else {
