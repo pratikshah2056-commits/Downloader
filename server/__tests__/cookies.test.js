@@ -50,6 +50,7 @@ It does not have tab-separated values.
 
   describe('getCookiePath environment variable resolving', () => {
     const originalEnv = process.env;
+    let existsSpy;
 
     beforeEach(() => {
       jest.resetModules();
@@ -62,6 +63,21 @@ It does not have tab-separated values.
       delete process.env.COOKIES;
       delete process.env.COOKIES_TXT;
       delete process.env.YOUTUBE_COOKIES;
+
+      const fs = require('fs');
+      const originalExistsSync = fs.existsSync;
+      existsSpy = jest.spyOn(fs, 'existsSync').mockImplementation((p) => {
+        if (p && typeof p === 'string' && p.endsWith('cookies.txt') && !p.includes('bin')) {
+          return false;
+        }
+        return originalExistsSync.call(fs, p);
+      });
+    });
+
+    afterEach(() => {
+      if (existsSpy) {
+        existsSpy.mockRestore();
+      }
     });
 
     afterAll(() => {
