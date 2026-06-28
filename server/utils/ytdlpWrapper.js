@@ -138,6 +138,21 @@ const detectPlatform = (url) => {
 };
 
 /**
+ * Get extractor arguments based on platform (e.g. bypass YouTube bot challenges)
+ */
+const getExtractorArgs = (url) => {
+  try {
+    const platform = detectPlatform(url);
+    if (platform === 'youtube') {
+      return ['--extractor-args', 'youtube:player_client=android,web'];
+    }
+  } catch (err) {
+    // Ignore parsing errors
+  }
+  return [];
+};
+
+/**
  * Sanitize URL to prevent command injection
  */
 const sanitizeUrl = (url) => {
@@ -167,6 +182,7 @@ const getMediaInfo = (url) => {
         '--no-warnings',
         '--no-playlist',
         ...getCookieArg(),
+        ...getExtractorArgs(url),
         sanitizedUrl,
       ];
 
@@ -265,6 +281,7 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
         '--no-playlist',
         '--no-warnings',
         ...getCookieArg(),
+        ...getExtractorArgs(url),
         '-o', outputTemplate,
         sanitizedUrl,
       ];
@@ -346,6 +363,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
           '--no-playlist',
           '--no-warnings',
           ...getCookieArg(),
+          ...getExtractorArgs(url),
           '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
           sanitizedUrl,
         ];
@@ -357,6 +375,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
           '--no-playlist',
           '--no-warnings',
           ...getCookieArg(),
+          ...getExtractorArgs(url),
           '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
           sanitizedUrl,
         ];
