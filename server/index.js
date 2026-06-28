@@ -30,8 +30,38 @@ app.use(helmet({
 }));
 
 // ─── CORS ─────────────────────────────────────────────────────────
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+];
+
+if (process.env.CLIENT_URL) {
+  // Support comma-separated URLs in CLIENT_URL env
+  const origins = process.env.CLIENT_URL.split(',').map(url => url.trim());
+  allowedOrigins.push(...origins);
+}
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, postman, curl)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is explicitly allowed
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Dynamically match any vercel.app domains (including preview deployments) associated with the project
+    const isVercelOrigin = origin.endsWith('.vercel.app') && 
+      (origin.includes('downloader') || origin.includes('pratikshah2056'));
+      
+    if (isVercelOrigin) {
+      return callback(null, true);
+    }
+    
+    return callback(null, false);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
