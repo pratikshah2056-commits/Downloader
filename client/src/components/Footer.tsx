@@ -36,28 +36,35 @@ const Footer: React.FC = () => {
               Download videos and audio from your favorite platforms quickly and easily.
             </p>
             {/* Download App Button */}
-            <a
-              href="http://localhost:5000/public/mediadl.apk"
-              download
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 1rem',
-                background: 'var(--gradient-primary)',
-                borderRadius: 'var(--radius-full)',
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
-                transition: 'opacity 0.2s',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-            >
-              📱 Download App
-            </a>
+            {(() => {
+              const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+              const hostUrl = apiBase.replace(/\/api\/?$/, '');
+              const apkUrl = `${hostUrl}/public/mediadl.apk`;
+              return (
+                <a
+                  href={apkUrl}
+                  download
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    background: 'var(--gradient-primary)',
+                    borderRadius: 'var(--radius-full)',
+                    color: 'white',
+                    textDecoration: 'none',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
+                    transition: 'opacity 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                >
+                  📱 Download App
+                </a>
+              );
+            })()}
           </div>
 
           {/* Quick Links */}
