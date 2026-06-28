@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUsers, FiDownload, FiTrash2, FiVideo, FiActivity } from 'react-icons/fi';
+import { FiUsers, FiDownload, FiTrash2, FiVideo, FiActivity, FiKey, FiSave, FiInfo, FiCopy, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { 
   FaYoutube, FaFacebook, FaInstagram, FaTiktok, FaTwitter, 
   FaVimeo, FaReddit, FaSoundcloud, FaTwitch, FaPinterest, FaLinkedin 
@@ -28,7 +28,7 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [downloads, setDownloads] = useState<AdminDownload[]>([]);
-  const [activeTab, setActiveTab] = useState<'users' | 'downloads'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'downloads' | 'cookies'>('users');
   const [isLoading, setIsLoading] = useState(true);
 
   // Pagination states
@@ -41,6 +41,12 @@ const AdminDashboard: React.FC = () => {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [deletingDownloadId, setDeletingDownloadId] = useState<string | null>(null);
 
+  // Cookie states
+  const [cookieConfig, setCookieConfig] = useState<any>(null);
+  const [cookiesText, setCookiesText] = useState('');
+  const [isSavingCookies, setIsSavingCookies] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+
   useEffect(() => {
     loadAllData();
   }, []);
@@ -48,29 +54,69 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'users') {
       loadUsers();
-    } else {
+    } else if (activeTab === 'downloads') {
       loadDownloads();
+    } else if (activeTab === 'cookies') {
+      loadCookies();
     }
   }, [activeTab, userPage, downloadPage]);
 
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, usersData, downloadsData] = await Promise.all([
+      const [statsData, usersData, downloadsData, cookiesData] = await Promise.all([
         adminService.getStats(),
         adminService.getUsers(userPage),
         adminService.getDownloads(downloadPage),
+        adminService.getCookies().catch(() => null),
       ]);
       setStats(statsData);
       setUsers(usersData.users);
       setUserTotalPages(usersData.pagination.pages);
       setDownloads(downloadsData.downloads);
       setDownloadTotalPages(downloadsData.pagination.pages);
+      if (cookiesData) {
+        setCookieConfig(cookiesData);
+        setCookiesText(cookiesData.content || '');
+      }
     } catch {
       toast.error('Failed to load administrative records');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadCookies = async () => {
+    try {
+      const data = await adminService.getCookies();
+      setCookieConfig(data);
+      setCookiesText(data.content || '');
+    } catch {
+      toast.error('Failed to refresh cookie settings');
+    }
+  };
+
+  const handleSaveCookies = async () => {
+    setIsSavingCookies(true);
+    try {
+      const data = await adminService.updateCookies(cookiesText);
+      setCookieConfig(data);
+      setCookiesText(data.content || '');
+      toast.success('Cookies configuration updated successfully');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update cookies');
+    } finally {
+      setIsSavingCookies(false);
+    }
+  };
+
+  const handleCopyEnvValue = () => {
+    if (!cookiesText) {
+      toast.error('No cookies content to copy');
+      return;
+    }
+    navigator.clipboard.writeText(cookiesText);
+    toast.success('Cookies text copied! You can paste this as your COOKIES_CONTENT env var.');
   };
 
   const loadUsers = async () => {
@@ -221,6 +267,7 @@ const AdminDashboard: React.FC = () => {
         {[
           { id: 'users' as const, label: 'Registered Users', count: stats?.totalUsers },
           { id: 'downloads' as const, label: 'Global Download Log', count: stats?.totalDownloads },
+          { id: 'cookies' as const, label: 'Cookie Manager', count: undefined },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -310,7 +357,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'downloads' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <AnimatePresence mode="popLayout">
               {downloads.map((item) => {
@@ -385,6 +432,300 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
           </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
+          >
+            {/* Header/Status Row */}
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '1.5rem',
+              alignItems: 'stretch'
+            }}>
+              {/* Card 1: Configuration Status */}
+              <div className="glass-card" style={{ flex: '1 1 300px', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Configuration Status</h3>
+                    <FiKey style={{ color: 'var(--color-accent-primary)', fontSize: '1.25rem' }} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    {cookieConfig?.exists ? (
+                      cookieConfig.diagnostics?.valid ? (
+                        <>
+                          <span style={{ display: 'inline-block', width: '0.75rem', height: '0.75rem', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                          <span style={{ fontWeight: 600, color: '#10b981' }}>Active & Valid</span>
+                        </>
+                      ) : cookieConfig.diagnostics?.reason === 'expired' ? (
+                        <>
+                          <span style={{ display: 'inline-block', width: '0.75rem', height: '0.75rem', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                          <span style={{ fontWeight: 600, color: '#ef4444' }}>Expired</span>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ display: 'inline-block', width: '0.75rem', height: '0.75rem', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                          <span style={{ fontWeight: 600, color: '#f59e0b' }}>Invalid Format</span>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <span style={{ display: 'inline-block', width: '0.75rem', height: '0.75rem', borderRadius: '50%', backgroundColor: 'var(--color-text-muted)' }} />
+                        <span style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>Not Configured</span>
+                      </>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', wordBreak: 'break-all' }}>
+                    {cookieConfig?.exists ? `Source: ${cookieConfig.path}` : 'Server is making anonymous requests. Cloud IPs/VPS are often blocked.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2: Cookie Diagnostics */}
+              <div className="glass-card" style={{ flex: '1 1 300px', padding: '1.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem' }}>Token Analytics</h3>
+                  <div style={{ display: 'flex', gap: '1.5rem' }}>
+                    <div>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981' }}>
+                        {cookieConfig?.diagnostics?.validCount || 0}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Valid Tokens</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ef4444' }}>
+                        {cookieConfig?.diagnostics?.expiredCount || 0}
+                      </p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Expired Tokens</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Platform Badges (Detected Domains) */}
+            {cookieConfig?.diagnostics?.domains && cookieConfig.diagnostics.domains.length > 0 && (
+              <div className="glass-card" style={{ padding: '1.25rem' }}>
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '0.75rem' }}>
+                  Authenticated Platforms (Detected Domains)
+                </h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {cookieConfig.diagnostics.domains.map((d: any) => {
+                    const matchedPlatform = platformIcons[d.domain.split('.')[0]];
+                    const color = matchedPlatform ? matchedPlatform.color : 'var(--color-accent-primary)';
+                    return (
+                      <div
+                        key={d.domain}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.35rem 0.75rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--color-bg-secondary)',
+                          border: '1px solid var(--color-border)',
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', backgroundColor: d.validCount > 0 ? '#10b981' : '#ef4444' }} />
+                        <strong style={{ color }}>{d.domain}</strong>
+                        <span style={{ color: 'var(--color-text-muted)' }}>({d.validCount} / {d.validCount + d.expiredCount})</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Main Cookies Editor Panel */}
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Cookies Editor</h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    Paste your Netscape format cookies text content below.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={handleCopyEnvValue}
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.4rem 0.8rem',
+                      fontSize: '0.75rem',
+                      borderRadius: 'var(--radius-sm)'
+                    }}
+                  >
+                    <FiCopy /> Copy Text
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete the cookies file? Server will fall back to anonymous mode.')) {
+                        setCookiesText('');
+                        adminService.updateCookies('').then((data) => {
+                          setCookieConfig(data);
+                          toast.success('Cookies file removed successfully');
+                        }).catch(() => toast.error('Failed to clear cookies'));
+                      }
+                    }}
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.4rem 0.8rem',
+                      fontSize: '0.75rem',
+                      color: '#ef4444',
+                      borderColor: 'rgba(239, 68, 68, 0.2)',
+                      borderRadius: 'var(--radius-sm)'
+                    }}
+                  >
+                    <FiTrash2 /> Clear File
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                value={cookiesText}
+                onChange={(e) => setCookiesText(e.target.value)}
+                placeholder="# Netscape HTTP Cookie File&#10;# http://curl.haxx.se/rfc/cookie_spec.html&#10;# This file is generated by libcurl! Edit at your own risk.&#10;.youtube.com	TRUE	/	TRUE	2147483647	SID	..."
+                rows={12}
+                style={{
+                  width: '100%',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.8rem',
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '1rem',
+                  resize: 'vertical',
+                  outline: 'none',
+                  lineHeight: '1.4',
+                  whiteSpace: 'pre',
+                  overflowX: 'auto',
+                }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                <button
+                  onClick={handleSaveCookies}
+                  disabled={isSavingCookies}
+                  className="btn-primary"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1.5rem',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <FiSave />
+                  {isSavingCookies ? 'Saving Changes...' : 'Save Cookie Configuration'}
+                </button>
+              </div>
+            </div>
+
+            {/* Step-by-Step Instructions Panel */}
+            <div className="glass-card" style={{ padding: '1.5rem' }}>
+              <button
+                onClick={() => setShowInstructions(!showInstructions)}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-primary)',
+                  padding: '0'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <FiInfo style={{ color: 'var(--color-accent-primary)' }} />
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>How to Get Cookies for All Platforms</h3>
+                </div>
+                {showInstructions ? <FiChevronUp /> : <FiChevronDown />}
+              </button>
+
+              <AnimatePresence>
+                {showInstructions && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    style={{ overflow: 'hidden', marginTop: '1.25rem' }}
+                  >
+                    <div style={{
+                      fontSize: '0.825rem',
+                      color: 'var(--color-text-secondary)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem',
+                      borderTop: '1px solid var(--color-border)',
+                      paddingTop: '1rem'
+                    }}>
+                      <div>
+                        <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '0.25rem' }}>
+                          Step 1: Install Browser Extension
+                        </strong>
+                        Install the **Get cookies.txt LOCALLY** extension in your browser:
+                        <ul style={{ paddingLeft: '1.25rem', marginTop: '0.25rem', listStyleType: 'disc' }}>
+                          <li><a href="https://chromewebstore.google.com/detail/get-cookiestxt-locally/ccolpediomjjoihjpdfaeoegidofihcf" target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent-primary)', textDecoration: 'underline' }}>Chrome Extension</a></li>
+                          <li><a href="https://addons.mozilla.org/en-US/firefox/addon/get-cookies-txt/" target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent-primary)', textDecoration: 'underline' }}>Firefox Add-on</a></li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '0.25rem' }}>
+                          Step 2: Log into Platforms & Export
+                        </strong>
+                        Open the desired platforms in separate tabs, make sure you are logged in (you can use secondary/throwaway accounts for privacy), and export their cookies using the extension:
+                        <ul style={{ paddingLeft: '1.25rem', marginTop: '0.25rem', listStyleType: 'disc' }}>
+                          <li><strong>YouTube:</strong> Open youtube.com, click the extension icon, and export.</li>
+                          <li><strong>Facebook:</strong> Open facebook.com, click the extension icon, and export.</li>
+                          <li><strong>Instagram:</strong> Open instagram.com, click the extension icon, and export.</li>
+                          <li><strong>TikTok:</strong> Open tiktok.com, click the extension icon, and export.</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '0.25rem' }}>
+                          Step 3: Combine Cookie Files
+                        </strong>
+                        Open the exported cookie files in a text editor (like Notepad or VS Code) and concatenate their contents. 
+                        Simply copy all lines from each file and paste them together into one single editor pane, making sure comments (lines starting with `#`) or blank lines are skipped or properly aligned.
+                        Finally, paste the merged text into the **Cookies Editor** above and click **Save Cookie Configuration**.
+                      </div>
+
+                      <div style={{
+                        background: 'rgba(99, 102, 241, 0.05)',
+                        border: '1px dashed var(--color-border)',
+                        padding: '1rem',
+                        borderRadius: 'var(--radius-sm)',
+                        marginTop: '0.5rem'
+                      }}>
+                        <strong style={{ color: 'var(--color-accent-primary)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                          💡 VPS & Production Hosting Tips
+                        </strong>
+                        <ul style={{ paddingLeft: '1.25rem', listStyleType: 'circle', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <li><strong>Persistent Servers (VPS / Docker):</strong> Saving cookies directly from this panel stores them to <code>server/cookies.txt</code> on the disk. They will persist between restarts.</li>
+                          <li><strong>Ephemeral Servers (Render / Vercel):</strong> Ephemeral hosts wipe files when they redeploy. To keep them persistent, click **Copy Text** to copy the full merged Netscape text, then go to your Render service dash, navigate to **Environment**, and save it as the value of the environment variable: <code>COOKIES_CONTENT</code>.</li>
+                          <li><strong>Cookie Expiration:</strong> Platform cookies periodically expire. When you receive downloading errors (e.g. "Bot challenge detected" or "Sign in required"), export fresh cookies and paste them here.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
         )}
       </div>
     </div>

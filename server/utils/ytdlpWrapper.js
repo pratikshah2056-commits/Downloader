@@ -22,13 +22,14 @@ const TEMP_COOKIES_PATH = path.resolve(__dirname, '../bin/cookies.txt');
 let binaryPathPromise = null;
 
 const getCookieArg = () => {
-  // 1. Check YOUTUBE_COOKIES_PATH env var
-  if (process.env.YOUTUBE_COOKIES_PATH) {
-    if (fs.existsSync(process.env.YOUTUBE_COOKIES_PATH)) {
-      console.log(`🍪 Using cookies from YOUTUBE_COOKIES_PATH: ${process.env.YOUTUBE_COOKIES_PATH}`);
-      return ['--cookies', process.env.YOUTUBE_COOKIES_PATH];
+  // 1. Check COOKIES_PATH or YOUTUBE_COOKIES_PATH env var
+  const configCookiesPath = process.env.COOKIES_PATH || process.env.YOUTUBE_COOKIES_PATH;
+  if (configCookiesPath) {
+    if (fs.existsSync(configCookiesPath)) {
+      console.log(`🍪 Using cookies from config: ${configCookiesPath}`);
+      return ['--cookies', configCookiesPath];
     } else {
-      console.warn(`⚠️ YOUTUBE_COOKIES_PATH configured but file not found: ${process.env.YOUTUBE_COOKIES_PATH}`);
+      console.warn(`⚠️ Cookies path configured but file not found: ${configCookiesPath}`);
     }
   }
 
@@ -38,14 +39,15 @@ const getCookieArg = () => {
     return ['--cookies', COOKIES_PATH];
   }
 
-  // 3. Check YT_COOKIES_CONTENT env var (dynamic fallback)
-  if (process.env.YT_COOKIES_CONTENT) {
+  // 3. Check COOKIES_CONTENT or YT_COOKIES_CONTENT env var (dynamic fallback)
+  const cookiesContent = process.env.COOKIES_CONTENT || process.env.YT_COOKIES_CONTENT;
+  if (cookiesContent) {
     if (!fs.existsSync(TEMP_COOKIES_PATH)) {
       if (!fs.existsSync(BIN_DIR)) {
         fs.mkdirSync(BIN_DIR, { recursive: true });
       }
-      fs.writeFileSync(TEMP_COOKIES_PATH, process.env.YT_COOKIES_CONTENT, 'utf8');
-      console.log(`🍪 Created temporary cookies file from YT_COOKIES_CONTENT.`);
+      fs.writeFileSync(TEMP_COOKIES_PATH, cookiesContent, 'utf8');
+      console.log(`🍪 Created temporary cookies file from environment variable content.`);
     }
     return ['--cookies', TEMP_COOKIES_PATH];
   }

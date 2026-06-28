@@ -33,6 +33,28 @@ export interface AdminDownload {
   downloadDate: string;
 }
 
+export interface DomainDiagnostic {
+  domain: string;
+  validCount: number;
+  expiredCount: number;
+}
+
+export interface CookieDiagnostics {
+  valid: boolean;
+  reason?: string;
+  validCount?: number;
+  expiredCount?: number;
+  domains?: DomainDiagnostic[];
+  error?: string;
+}
+
+export interface CookieConfigData {
+  exists: boolean;
+  path: string;
+  content: string;
+  diagnostics: CookieDiagnostics | null;
+}
+
 export const adminService = {
   getStats: async (): Promise<AdminStats> => {
     const response = await api.get('/admin/stats');
@@ -57,5 +79,15 @@ export const adminService = {
   deleteDownload: async (id: string) => {
     const response = await api.delete(`/admin/downloads/${id}`);
     return response.data;
+  },
+
+  getCookies: async (): Promise<CookieConfigData> => {
+    const response = await api.get('/admin/cookies');
+    return response.data.data;
+  },
+
+  updateCookies: async (content: string): Promise<CookieConfigData> => {
+    const response = await api.post('/admin/cookies', { content });
+    return response.data.data;
   },
 };

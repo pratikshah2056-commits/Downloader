@@ -1,5 +1,8 @@
 const User = require('../models/User');
 const Download = require('../models/Download');
+const fs = require('fs');
+const path = require('path');
+const { validateCookies, parseCookiesContent } = require('../utils/diagnostics');
 
 /**
  * GET /api/admin/stats
@@ -167,10 +170,122 @@ const deleteDownload = async (req, res, next) => {
   }
 };
 
+const getActiveCookiesPath = () => {
+  const configCookiesPath = process.env.COOKIES_PATH || process.env.YOUTUBE_COOKIES_PATH;
+  if (configCookiesPath) {
+    return configCookiesPath;
+  }
+  return path.resolve(__dirname, '../cookies.txt');
+};
+
+/**
+ * GET /api/admin/cookies
+ * Retrieve active cookie settings and diagnostics
+ */
+const getCookies = async (req, res, next) => {
+  try {
+    const cookiesPath = getActiveCookiesPath();
+    let exists = false;
+    let content = '';
+    let diagnostics = null;
+
+    if (fs.existsSync(cookiesPath)) {
+      exists = true;
+      content = fs.readFileSync(cookiesPath, 'utf8');
+      diagnostics = validateCookies(cookiesPath);
+    } else {
+      const envContent = process.env.COOKIES_CONTENT || process.env.YT_COOKIES_CONTENT;
+      if (envContent) {
+        exists = true;
+        content = envContent;
+        diagnostics = parseCookiesContent(envContent);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        exists,
+        path: cookiesPath,
+        content,
+        diagnostics,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/admin/cookies
+ * Save new cookie settings
+ */
+const updateCookies = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+
+    if (content === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cookies content is required.',
+      });
+    }
+
+    const trimmedContent = content.trim();
+
+    if (trimmedContent === '') {
+      const cookiesPath = getActiveCookiesPath();
+      if (fs.existsSync(cookiesPath)) {
+        fs.unlinkSync(cookiesPath);
+      }
+      return res.json({
+        success: true,
+        message: 'Cookies cleared successfully.',
+        data: {
+          exists: false,
+          content: '',
+          diagnostics: null,
+        },
+      });
+    }
+
+    const validation = parseCookiesContent(trimmedContent);
+    if (!validation.valid && validation.reason !== 'expired') {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid cookies format: ${validation.reason || 'unknown parsing error'}`,
+      });
+    }
+
+    const cookiesPath = getActiveCookiesPath();
+    const parentDir = path.dirname(cookiesPath);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+
+    fs.writeFileSync(cookiesPath, trimmedContent, 'utf8');
+
+    res.json({
+      success: true,
+      message: 'Cookies updated successfully.',
+      data: {
+        exists: true,
+        path: cookiesPath,
+        content: trimmedContent,
+        diagnostics: validation,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getStats,
   getUsers,
   deleteUser,
   getDownloads,
   deleteDownload,
+  getCookies,
+  updateCookies,
 };

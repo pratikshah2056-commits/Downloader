@@ -6,6 +6,78 @@ const { execSync } = require('child_process');
  * Validate Netscape cookies format and check for expired tokens
  * @param {string} filePath 
  */
+const parseCookiesContent = (content) => {
+  if (!content || !content.trim()) {
+    return { valid: false, reason: 'empty' };
+  }
+
+  const lines = content.split('\n');
+  let hasCookies = false;
+  let expiredCount = 0;
+  let validCount = 0;
+  const now = Math.floor(Date.now() / 1000);
+  const domains = {};
+
+  for (const line of lines) {
+    // Skip comments and empty lines
+    if (line.startsWith('#') || !line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length >= 7) {
+      hasCookies = true;
+      const rawDomain = parts[0].trim();
+      const expiry = parseInt(parts[4]);
+      const isExpired = isNaN(expiry) || expiry < now;
+      
+      if (isExpired) {
+        expiredCount++;
+      } else {
+        validCount++;
+      }
+
+      // Determine matching domain/platform
+      let domainKey = rawDomain;
+      if (rawDomain.includes('youtube.com') || rawDomain.includes('googlevideo.com') || rawDomain.includes('youtube-nocookie.com')) {
+        domainKey = 'youtube.com';
+      } else if (rawDomain.includes('facebook.com') || rawDomain.includes('fbcdn.net')) {
+        domainKey = 'facebook.com';
+      } else if (rawDomain.includes('instagram.com')) {
+        domainKey = 'instagram.com';
+      } else if (rawDomain.includes('tiktok.com')) {
+        domainKey = 'tiktok.com';
+      } else if (rawDomain.includes('twitter.com') || rawDomain.includes('x.com')) {
+        domainKey = 'x.com';
+      } else {
+        domainKey = rawDomain.replace(/^\./, '');
+      }
+
+      if (!domains[domainKey]) {
+        domains[domainKey] = { validCount: 0, expiredCount: 0 };
+      }
+      if (isExpired) {
+        domains[domainKey].expiredCount++;
+      } else {
+        domains[domainKey].validCount++;
+      }
+    }
+  }
+
+  if (!hasCookies) {
+    return { valid: false, reason: 'invalid_format' };
+  }
+
+  const domainList = Object.keys(domains).map(domain => ({
+    domain,
+    validCount: domains[domain].validCount,
+    expiredCount: domains[domain].expiredCount
+  }));
+
+  if (validCount === 0) {
+    return { valid: false, reason: 'expired', validCount, expiredCount, domains: domainList };
+  }
+
+  return { valid: true, validCount, expiredCount, domains: domainList };
+};
+
 const validateCookies = (filePath) => {
   try {
     if (!fs.existsSync(filePath)) {
@@ -13,35 +85,7 @@ const validateCookies = (filePath) => {
     }
 
     const content = fs.readFileSync(filePath, 'utf8');
-    const lines = content.split('\n');
-    let hasCookies = false;
-    let expiredCount = 0;
-    let validCount = 0;
-    const now = Math.floor(Date.now() / 1000);
-
-    for (const line of lines) {
-      // Skip comments and empty lines
-      if (line.startsWith('#') || !line.trim()) continue;
-      const parts = line.split('\t');
-      if (parts.length >= 7) {
-        hasCookies = true;
-        const expiry = parseInt(parts[4]);
-        if (isNaN(expiry) || expiry < now) {
-          expiredCount++;
-        } else {
-          validCount++;
-        }
-      }
-    }
-
-    if (!hasCookies) {
-      return { valid: false, reason: 'invalid_format' };
-    }
-    if (validCount === 0) {
-      return { valid: false, reason: 'expired' };
-    }
-
-    return { valid: true, validCount, expiredCount };
+    return parseCookiesContent(content);
   } catch (err) {
     return { valid: false, reason: 'error', error: err.message };
   }
@@ -74,7 +118,7 @@ const runStartupDiagnostics = async () => {
   }
 
   // 3. Validate Cookies config
-  let cookiesPath = process.env.YOUTUBE_COOKIES_PATH;
+  let cookiesPath = process.env.COOKIES_PATH || process.env.YOUTUBE_COOKIES_PATH;
   if (!cookiesPath) {
     // Check fallback path in root
     const fallbackPath = path.resolve(__dirname, '../../cookies.txt');
@@ -87,7 +131,9 @@ const runStartupDiagnostics = async () => {
     console.log(`🍪 Analyzing cookies configured at: ${cookiesPath}`);
     const check = validateCookies(cookiesPath);
     if (check.valid) {
+      const domainsList = check.domains.map(d => d.domain).join(', ');
       console.log(`✅ Cookies loaded successfully. (Valid: ${check.validCount}, Expired: ${check.expiredCount})`);
+      console.log(`   Detected cookie domains: ${domainsList}`);
     } else {
       if (check.reason === 'missing') {
         console.warn(`⚠️ Cookies file configured but not found: ${cookiesPath}`);
@@ -98,7 +144,7 @@ const runStartupDiagnostics = async () => {
       }
     }
   } else {
-    console.log('💡 No cookies.txt path configured. yt-dlp will perform anonymous requests for YouTube.');
+    console.log('💡 No cookies.txt path configured. yt-dlp will perform anonymous requests for all platforms.');
   }
 
   console.log('🚀 System Diagnostics Completed.\n');
@@ -106,5 +152,6 @@ const runStartupDiagnostics = async () => {
 
 module.exports = {
   validateCookies,
+  parseCookiesContent,
   runStartupDiagnostics,
 };
