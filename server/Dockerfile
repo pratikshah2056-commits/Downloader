@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+ENV FFMPEG_PATH=/usr/bin/ffmpeg
+ENV YTDLP_PATH=/usr/local/bin/yt-dlp
+ENV YOUTUBE_COOKIES_PATH=/app/cookies.txt
+
 WORKDIR /app
 
 # Copy package files

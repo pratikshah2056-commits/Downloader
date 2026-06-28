@@ -18,10 +18,8 @@ const getMediaInfo = async (req, res, next) => {
       data: info,
     });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message || 'Failed to fetch media information.',
-    });
+    if (!error.statusCode) error.statusCode = 400;
+    next(error);
   }
 };
 
@@ -93,12 +91,7 @@ const downloadVideo = async (req, res, next) => {
   } catch (error) {
     // Clean up file on error
     if (filePath) ytdlp.deleteFile(filePath);
-
-    const isBot = error.message.includes('YouTube blocked anonymous cloud requests');
-    res.status(isBot ? 400 : 500).json({
-      success: false,
-      message: error.message || 'Failed to download video.',
-    });
+    next(error);
   }
 };
 
@@ -173,12 +166,7 @@ const downloadAudio = async (req, res, next) => {
     fileStream.pipe(res);
   } catch (error) {
     if (filePath) ytdlp.deleteFile(filePath);
-
-    const isBot = error.message.includes('YouTube blocked anonymous cloud requests');
-    res.status(isBot ? 400 : 500).json({
-      success: false,
-      message: error.message || 'Failed to download audio.',
-    });
+    next(error);
   }
 };
 

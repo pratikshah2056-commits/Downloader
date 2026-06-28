@@ -16,6 +16,8 @@ const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const { startCleanupJob } = require('./utils/fileCleanup');
+const { v4: uuidv4 } = require('uuid');
+const { runStartupDiagnostics } = require('./utils/diagnostics');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -26,6 +28,13 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Request ID middleware
+app.use((req, res, next) => {
+  req.id = uuidv4();
+  res.setHeader('X-Request-ID', req.id);
+  next();
+});
 
 // Trust proxy (necessary for express-rate-limit behind Render/Vercel reverse proxies)
 app.set('trust proxy', 1);
@@ -88,7 +97,8 @@ app.use(mongoSanitize());
 
 // ─── Request Logging ──────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  morgan.token('id', (req) => req.id);
+  app.use(morgan('[:id] :method :url :status :res[content-length] - :response-time ms'));
 }
 
 // ─── Rate Limiting ────────────────────────────────────────────────
@@ -120,6 +130,8 @@ app.use((req, res) => {
 // ─── Error Handler ────────────────────────────────────────────────
 app.use(errorHandler);
 
+let serverListener;
+
 // ─── Start Server ─────────────────────────────────────────────────
 const startServer = async () => {
   try {
@@ -136,11 +148,16 @@ const startServer = async () => {
     // Connect to MongoDB
     await connectDB();
 
+    // Run system diagnostics checks
+    if (process.env.NODE_ENV !== 'test') {
+      await runStartupDiagnostics();
+    }
+
     // Start file cleanup cron job
     startCleanupJob();
 
     // Start Express server
-    app.listen(PORT, () => {
+    serverListener = app.listen(PORT, () => {
       console.log(`\n🚀 Server running on port ${PORT}`);
       console.log(`📡 API: http://localhost:${PORT}/api`);
       console.log(`💊 Health: http://localhost:${PORT}/api/health`);
@@ -155,5 +172,29 @@ const startServer = async () => {
 if (process.env.NODE_ENV !== 'test') {
   startServer();
 }
+
+// Graceful shutdown handling
+const gracefulShutdown = () => {
+  console.log('\n🔄 SIGTERM/SIGINT received. Shutting down gracefully...');
+  if (serverListener) {
+    serverListener.close(async () => {
+      console.log('💻 HTTP server closed.');
+      try {
+        const mongoose = require('mongoose');
+        await mongoose.connection.close(false);
+        console.log('🗄️ MongoDB connection closed.');
+        process.exit(0);
+      } catch (err) {
+        console.error('❌ Error during graceful shutdown:', err.message);
+        process.exit(1);
+      }
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 module.exports = app; // Export for testing

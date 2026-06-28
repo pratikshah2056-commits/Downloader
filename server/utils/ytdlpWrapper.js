@@ -54,6 +54,9 @@ const getCookieArg = () => {
 };
 
 const getBinaryPath = () => {
+  if (process.env.YTDLP_PATH) {
+    return Promise.resolve(process.env.YTDLP_PATH);
+  }
   if (binaryPathPromise) return binaryPathPromise;
 
   binaryPathPromise = (async () => {
@@ -101,10 +104,11 @@ const checkFfmpeg = () => {
   if (ffmpegAvailable !== null) return ffmpegAvailable;
   try {
     const { execSync } = require('child_process');
-    execSync('ffmpeg -version', { stdio: 'ignore' });
+    const ffmpegCmd = process.env.FFMPEG_PATH || 'ffmpeg';
+    execSync(`${ffmpegCmd} -version`, { stdio: 'ignore' });
     ffmpegAvailable = true;
   } catch {
-    console.warn('⚠️ FFmpeg/FFprobe not found. Video downloads will fallback to pre-merged streams and audio will fallback to raw streams.');
+    console.warn(`⚠️ FFmpeg/FFprobe not found at '${process.env.FFMPEG_PATH || 'ffmpeg'}'. Video downloads will fallback to pre-merged streams.`);
     ffmpegAvailable = false;
   }
   return ffmpegAvailable;
@@ -174,8 +178,37 @@ const isBotBlockError = (errMessage) => {
     (msg.includes('confirm you') && msg.includes('not a bot')) ||
     msg.includes('sign in to confirm') ||
     msg.includes('cookies-from-browser') ||
-    msg.includes('use --cookies')
+    msg.includes('use --cookies') ||
+    msg.includes('private video') ||
+    msg.includes('requires authentication')
   );
+};
+
+const createStructuredError = (errOutput, defaultMsg = 'Download failed.') => {
+  const err = new Error(defaultMsg);
+  const msg = (errOutput || '').toLowerCase();
+
+  if (
+    (msg.includes('confirm you') && msg.includes('not a bot')) ||
+    msg.includes('sign in to confirm') ||
+    msg.includes('cookies-from-browser') ||
+    msg.includes('use --cookies') ||
+    msg.includes('private video') ||
+    msg.includes('requires authentication')
+  ) {
+    err.code = 'AUTH_REQUIRED';
+    err.statusCode = 400;
+    err.message = 'YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS.';
+  } else if (msg.includes('invalid url') || msg.includes('url is invalid') || msg.includes('failed to parse url')) {
+    err.code = 'INVALID_URL';
+    err.statusCode = 400;
+    err.message = 'The URL is invalid or platform not supported.';
+  } else {
+    err.code = 'DOWNLOAD_FAILED';
+    err.statusCode = 500;
+    err.message = defaultMsg;
+  }
+  return err;
 };
 
 /**
@@ -212,14 +245,14 @@ const getMediaInfo = (url) => {
         sanitizedUrl,
       ];
 
+      const startTime = Date.now();
       execFile(binaryPath, args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+        const duration = Date.now() - startTime;
+        console.log(`⏱️ yt-dlp getMediaInfo execution time: ${duration}ms`);
         if (error) {
           const errOutput = stderr || error.message;
-          console.error('yt-dlp error:', errOutput);
-          if (isBotBlockError(errOutput)) {
-            return reject(new Error("YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS."));
-          }
-          return reject(new Error('Failed to fetch media information. Please check the URL.'));
+          console.error(`❌ yt-dlp info extractor failed [${duration}ms]:`, errOutput);
+          return reject(createStructuredError(errOutput, 'Failed to fetch media information. Please check the URL.'));
         }
 
         try {
@@ -320,6 +353,7 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
         args.unshift('--merge-output-format', format);
       }
 
+      const startTime = Date.now();
       const process = spawn(binaryPath, args, { timeout: 300000 });
 
       let stderr = '';
@@ -329,12 +363,11 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
       });
 
       process.on('close', (code) => {
+        const duration = Date.now() - startTime;
+        console.log(`⏱️ yt-dlp downloadVideo execution time: ${duration}ms`);
         if (code !== 0) {
-          console.error('yt-dlp download error:', stderr);
-          if (isBotBlockError(stderr)) {
-            return reject(new Error("YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS."));
-          }
-          return reject(new Error('Failed to download video.'));
+          console.error(`❌ yt-dlp video download failed [${duration}ms]:`, stderr);
+          return reject(createStructuredError(stderr, 'Failed to download video.'));
         }
 
         // Check if file exists
@@ -414,6 +447,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
         ];
       }
 
+      const startTime = Date.now();
       const process = spawn(binaryPath, args, { timeout: 300000 });
 
       let stderr = '';
@@ -423,12 +457,11 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
       });
 
       process.on('close', (code) => {
+        const duration = Date.now() - startTime;
+        console.log(`⏱️ yt-dlp downloadAudio execution time: ${duration}ms`);
         if (code !== 0) {
-          console.error('yt-dlp audio error:', stderr);
-          if (isBotBlockError(stderr)) {
-            return reject(new Error("YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS."));
-          }
-          return reject(new Error('Failed to download audio.'));
+          console.error(`❌ yt-dlp audio download failed [${duration}ms]:`, stderr);
+          return reject(createStructuredError(stderr, 'Failed to download audio.'));
         }
 
         // yt-dlp extracts audio and may change extension

@@ -51,6 +51,7 @@ const errorHandler = (err, req, res, next) => {
   // Default server error
   res.status(err.statusCode || 500).json({
     success: false,
+    code: err.code || 'INTERNAL_SERVER_ERROR',
     message: err.message || 'Internal server error.',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
