@@ -22,41 +22,33 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const mockAdminUser: User = {
+    id: 'mock-admin-id',
+    username: 'pratikadmin',
+    email: 'pratikshah2056@gmail.com',
+    role: 'admin',
+    createdAt: new Date().toISOString(),
+    isVerified: true
+  };
 
-  // Load auth state from localStorage on mount
+  const [user, setUser] = useState<User | null>(mockAdminUser);
+  const [token, setToken] = useState<string | null>('mock-bypass-token');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load auth state from localStorage on mount (disabled for bypass)
   useEffect(() => {
-    try {
-      const storedToken = localStorage.getItem('umd_token');
-      const storedUser = localStorage.getItem('umd_user');
-
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error('Error loading auth state:', error);
-      localStorage.removeItem('umd_token');
-      localStorage.removeItem('umd_user');
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   }, []);
 
   const login = useCallback((newToken: string, newUser: User) => {
     setToken(newToken);
     setUser(newUser);
-    localStorage.setItem('umd_token', newToken);
-    localStorage.setItem('umd_user', JSON.stringify(newUser));
   }, []);
 
   const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('umd_token');
-    localStorage.removeItem('umd_user');
+    // Keep logged in as mock admin on logout
+    setToken('mock-bypass-token');
+    setUser(mockAdminUser);
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {

@@ -3,52 +3,27 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    // Get token from Authorization header
-    const authHeader = req.header('Authorization');
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access denied. No token provided.',
-      });
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Find user and attach to request
-    const user = await User.findById(decoded.id);
-
+    // Bypass authentication: automatically authenticate as the seeded admin user
+    let user = await User.findOne({ email: 'pratikshah2056@gmail.com' });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Token is valid but user no longer exists.',
+      user = await User.findOne(); // Fallback to first user in database
+    }
+    if (!user) {
+      // Create a dummy user if none exists in db
+      user = await User.create({
+        username: 'pratikadmin',
+        email: 'pratikshah2056@gmail.com',
+        role: 'admin',
+        isVerified: true,
       });
     }
-
     req.user = user;
-    req.token = token;
+    req.token = 'mock-bypass-token';
     next();
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token.',
-      });
-    }
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token has expired.',
-      });
-    }
-
     res.status(500).json({
       success: false,
-      message: 'Authentication error.',
+      message: 'Authentication error during bypass.',
     });
   }
 };
