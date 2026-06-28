@@ -193,20 +193,40 @@ const createStructuredError = (errOutput, defaultMsg = 'Download failed.') => {
     msg.includes('sign in to confirm') ||
     msg.includes('cookies-from-browser') ||
     msg.includes('use --cookies') ||
-    msg.includes('private video') ||
-    msg.includes('requires authentication')
+    msg.includes('requires authentication') ||
+    msg.includes('login')
   ) {
-    err.code = 'AUTH_REQUIRED';
+    err.code = 'YOUTUBE_AUTH_REQUIRED';
     err.statusCode = 400;
-    err.message = 'YouTube blocked anonymous cloud requests. Configure cookies.txt or use a VPS.';
-  } else if (msg.includes('invalid url') || msg.includes('url is invalid') || msg.includes('failed to parse url')) {
+    err.message = 'YouTube blocked this request from the hosting provider.';
+  } else if (msg.includes('private video') || msg.includes('sign in if this video is private')) {
+    err.code = 'PRIVATE_VIDEO';
+    err.statusCode = 400;
+    err.message = 'This is a private video. Authentication or cookies are required.';
+  } else if (msg.includes('geo-restricted') || msg.includes('not available in your country') || msg.includes('geo restriction') || msg.includes('geo-restriction')) {
+    err.code = 'GEO_RESTRICTED';
+    err.statusCode = 400;
+    err.message = "This content is geo-restricted and not available in the backend server's location.";
+  } else if (msg.includes('confirm your age') || msg.includes('age-gated') || msg.includes('age restriction') || msg.includes('age-restricted')) {
+    err.code = 'AGE_RESTRICTED';
+    err.statusCode = 400;
+    err.message = 'This content is age-restricted and requires age confirmation.';
+  } else if (msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('429')) {
+    err.code = 'RATE_LIMIT_EXCEEDED';
+    err.statusCode = 429;
+    err.message = 'Too many requests. Rate limit exceeded for this host.';
+  } else if (msg.includes('invalid url') || msg.includes('url is invalid') || msg.includes('failed to parse url') || msg.includes('unsupported url')) {
     err.code = 'INVALID_URL';
     err.statusCode = 400;
-    err.message = 'The URL is invalid or platform not supported.';
+    err.message = 'The URL is invalid.';
+  } else if (msg.includes('generic extractor') || msg.includes('not supported') || msg.includes('unknown url')) {
+    err.code = 'UNSUPPORTED_PLATFORM';
+    err.statusCode = 400;
+    err.message = 'This platform or URL is not supported by the downloader.';
   } else {
-    err.code = 'DOWNLOAD_FAILED';
+    err.code = 'EXTRACTOR_FAILURE';
     err.statusCode = 500;
-    err.message = defaultMsg;
+    err.message = defaultMsg || 'Media extraction failed. Please try again.';
   }
   return err;
 };

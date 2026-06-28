@@ -79,6 +79,19 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const getBlobErrorMessage = async (error: any, defaultMsg: string): Promise<string> => {
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const json = JSON.parse(text);
+        return json.message || json.error || defaultMsg;
+      } catch {
+        return defaultMsg;
+      }
+    }
+    return error.response?.data?.message || error.message || defaultMsg;
+  };
+
   const handleDownloadVideo = async (format: string, quality: string) => {
     if (!currentUrl) return;
     setIsDownloading(true);
@@ -99,7 +112,8 @@ const Dashboard: React.FC = () => {
       toast.success('Download complete!');
       loadStats();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Download failed');
+      const msg = await getBlobErrorMessage(error, 'Download failed');
+      toast.error(msg);
     } finally {
       setTimeout(() => {
         setIsDownloading(false);
@@ -128,7 +142,8 @@ const Dashboard: React.FC = () => {
       toast.success('Audio download complete!');
       loadStats();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Audio download failed');
+      const msg = await getBlobErrorMessage(error, 'Audio download failed');
+      toast.error(msg);
     } finally {
       setTimeout(() => {
         setIsDownloading(false);

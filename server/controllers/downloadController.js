@@ -8,16 +8,25 @@ const ytdlp = require('../utils/ytdlpWrapper');
  * Get media information from URL
  */
 const getMediaInfo = async (req, res, next) => {
+  const startTime = Date.now();
+  const { url } = req.body;
   try {
-    const { url } = req.body;
+    console.log(`[${req.id}] 📡 GET_INFO REQUEST: URL = "${url}"`);
 
     const info = await ytdlp.getMediaInfo(url);
+
+    const duration = Date.now() - startTime;
+    console.log(`[${req.id}] ✅ GET_INFO SUCCESS [${duration}ms]: URL = "${url}"`);
 
     res.json({
       success: true,
       data: info,
     });
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const status = error.statusCode || 400;
+    console.error(`[${req.id}] ❌ GET_INFO FAILURE [${duration}ms] Status: ${status} Code: ${error.code || 'EXTRACTOR_FAILURE'}: URL = "${url}". Error: ${error.message}`);
+    
     if (!error.statusCode) error.statusCode = 400;
     next(error);
   }
@@ -29,9 +38,11 @@ const getMediaInfo = async (req, res, next) => {
  */
 const downloadVideo = async (req, res, next) => {
   let filePath = null;
+  const startTime = Date.now();
+  const { url, format = 'mp4', quality = 'best' } = req.body;
 
   try {
-    const { url, format = 'mp4', quality = 'best' } = req.body;
+    console.log(`[${req.id}] 📡 VIDEO_DOWNLOAD REQUEST: URL = "${url}", format = ${format}, quality = ${quality}`);
 
     // Get media info first for metadata
     let mediaInfo;
@@ -76,14 +87,16 @@ const downloadVideo = async (req, res, next) => {
     const fileStream = fs.createReadStream(filePath);
 
     fileStream.on('end', () => {
+      const duration = Date.now() - startTime;
+      console.log(`[${req.id}] ✅ VIDEO_DOWNLOAD SUCCESS [${duration}ms]: URL = "${url}"`);
       // Schedule file deletion after streaming
       setTimeout(() => ytdlp.deleteFile(filePath), 60000); // Delete after 1 minute
     });
 
     fileStream.on('error', (error) => {
-      console.error('File stream error:', error);
+      console.error(`[${req.id}] ❌ File stream error:`, error);
       if (!res.headersSent) {
-        res.status(500).json({ success: false, message: 'Error streaming file.' });
+        res.status(500).json({ success: false, code: 'STREAM_FAILED', message: 'Error streaming file.' });
       }
     });
 
@@ -91,6 +104,11 @@ const downloadVideo = async (req, res, next) => {
   } catch (error) {
     // Clean up file on error
     if (filePath) ytdlp.deleteFile(filePath);
+
+    const duration = Date.now() - startTime;
+    const status = error.statusCode || 500;
+    console.error(`[${req.id}] ❌ VIDEO_DOWNLOAD FAILURE [${duration}ms] Status: ${status} Code: ${error.code || 'DOWNLOAD_FAILED'}: URL = "${url}". Error: ${error.message}`);
+
     next(error);
   }
 };
@@ -101,9 +119,11 @@ const downloadVideo = async (req, res, next) => {
  */
 const downloadAudio = async (req, res, next) => {
   let filePath = null;
+  const startTime = Date.now();
+  const { url, format = 'mp3', quality = 'best' } = req.body;
 
   try {
-    const { url, format = 'mp3', quality = 'best' } = req.body;
+    console.log(`[${req.id}] 📡 AUDIO_DOWNLOAD REQUEST: URL = "${url}", format = ${format}, quality = ${quality}`);
 
     // Get media info first for metadata
     let mediaInfo;
@@ -153,19 +173,26 @@ const downloadAudio = async (req, res, next) => {
     const fileStream = fs.createReadStream(filePath);
 
     fileStream.on('end', () => {
+      const duration = Date.now() - startTime;
+      console.log(`[${req.id}] ✅ AUDIO_DOWNLOAD SUCCESS [${duration}ms]: URL = "${url}"`);
       setTimeout(() => ytdlp.deleteFile(filePath), 60000);
     });
 
     fileStream.on('error', (error) => {
-      console.error('File stream error:', error);
+      console.error(`[${req.id}] ❌ File stream error:`, error);
       if (!res.headersSent) {
-        res.status(500).json({ success: false, message: 'Error streaming file.' });
+        res.status(500).json({ success: false, code: 'STREAM_FAILED', message: 'Error streaming file.' });
       }
     });
 
     fileStream.pipe(res);
   } catch (error) {
     if (filePath) ytdlp.deleteFile(filePath);
+
+    const duration = Date.now() - startTime;
+    const status = error.statusCode || 500;
+    console.error(`[${req.id}] ❌ AUDIO_DOWNLOAD FAILURE [${duration}ms] Status: ${status} Code: ${error.code || 'DOWNLOAD_FAILED'}: URL = "${url}". Error: ${error.message}`);
+
     next(error);
   }
 };
