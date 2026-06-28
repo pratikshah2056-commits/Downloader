@@ -196,11 +196,15 @@ const createStructuredError = (errOutput, defaultMsg = 'Download failed.') => {
     msg.includes('cookies-from-browser') ||
     msg.includes('use --cookies') ||
     msg.includes('requires authentication') ||
-    msg.includes('login')
+    msg.includes('login') ||
+    msg.includes('forbidden') ||
+    msg.includes('access denied') ||
+    msg.includes('blocked') ||
+    msg.includes('403')
   ) {
     err.code = 'YOUTUBE_AUTH_REQUIRED';
     err.statusCode = 400;
-    err.message = 'YouTube blocked this request from the hosting provider.';
+    err.message = 'The platform blocked this request from the hosting provider. Cookies are required to download.';
   } else if (msg.includes('private video') || msg.includes('sign in if this video is private')) {
     err.code = 'PRIVATE_VIDEO';
     err.statusCode = 400;
