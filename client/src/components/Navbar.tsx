@@ -8,7 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 const Navbar: React.FC = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const { isAuthenticated, user, token, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,7 +28,7 @@ const Navbar: React.FC = () => {
   const authLinks = [
     { to: '/dashboard', label: 'Dashboard', icon: <FiDownload /> },
     { to: '/history', label: 'History', icon: <FiDownload /> },
-    ...(user?.role === 'admin' && token !== 'mock-bypass-token' ? [{ to: '/admin', label: 'Admin Panel', icon: <FiUser /> }] : []),
+    ...(user?.role === 'admin' ? [{ to: '/admin', label: 'Admin Panel', icon: <FiUser /> }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;
