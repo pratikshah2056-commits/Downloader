@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-// Create reusable transporter object using Gmail SMTP transport
+// Create reusable transporter with explicit Gmail SMTP settings
 const createTransporter = () => {
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
@@ -10,54 +10,87 @@ const createTransporter = () => {
     return null;
   }
 
-  return nodemailer.createTransport({
-    service: 'gmail',
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // use STARTTLS
     auth: {
       user: user,
       pass: pass,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
+
+  return transporter;
 };
 
+// Verify transporter on startup
+const verifyTransporter = async () => {
+  const transporter = createTransporter();
+  if (!transporter) return;
+  try {
+    await transporter.verify();
+    console.log(`✅ Email transporter ready: ${process.env.EMAIL_USER}`);
+  } catch (err) {
+    console.error(`❌ Email transporter verification failed: ${err.message}`);
+    console.error('   → Check EMAIL_USER and EMAIL_PASS in .env (use Gmail App Password)');
+  }
+};
+
+// Run verify on module load
+verifyTransporter();
+
 /**
- * Send OTP verification email to user
+ * Send OTP email (works for both verification and password reset)
  */
-const sendOTPEmail = async (toEmail, otp) => {
+const sendOTPEmail = async (toEmail, otp, subject = 'Your OTP Code - MediaDL') => {
   const transporter = createTransporter();
 
   const mailOptions = {
-    from: `"MediaDL" <${process.env.EMAIL_USER || 'noreply@mediadl.com'}>`,
+    from: `"MediaDL" <${process.env.EMAIL_USER}>`,
     to: toEmail,
-    subject: 'Verification Code - MediaDL',
+    subject,
     html: `
-      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-        <h2 style="color: #6366f1; text-align: center; margin-bottom: 20px;">MediaDL Email Verification</h2>
-        <p>Thank you for registering on MediaDL. Please use the following One-Time Password (OTP) to verify your account:</p>
-        <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; margin: 25px 0;">
-          <span style="font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #0f172a;">${otp}</span>
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; background: #0f172a; border-radius: 16px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">⬇ MediaDL</h1>
+          <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px;">Your verification code</p>
         </div>
-        <p style="color: #64748b; font-size: 14px;">This code is valid for 10 minutes. If you did not request this, please ignore this email.</p>
-        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-        <p style="color: #94a3b8; font-size: 12px; text-align: center;">© ${new Date().getFullYear()} MediaDL. All rights reserved.</p>
+        <div style="padding: 32px; background: #1e293b;">
+          <p style="color: #94a3b8; font-size: 15px; margin: 0 0 24px; line-height: 1.6;">
+            Use the code below to verify your request. This code is valid for <strong style="color: #e2e8f0;">10 minutes</strong>.
+          </p>
+          <div style="background: #0f172a; border: 2px solid #6366f1; border-radius: 12px; padding: 24px; text-align: center; margin: 0 0 24px;">
+            <span style="font-family: 'Courier New', monospace; font-size: 40px; font-weight: 900; letter-spacing: 10px; color: #a5b4fc;">${otp}</span>
+          </div>
+          <p style="color: #64748b; font-size: 13px; margin: 0; line-height: 1.6;">
+            If you did not request this code, please ignore this email. Do not share this code with anyone.
+          </p>
+        </div>
+        <div style="padding: 16px 32px; background: #0f172a; text-align: center; border-top: 1px solid #1e293b;">
+          <p style="color: #334155; font-size: 12px; margin: 0;">© ${new Date().getFullYear()} MediaDL. All rights reserved.</p>
+        </div>
       </div>
     `,
   };
 
   if (!transporter) {
-    console.log(`\n📧 [EMAIL SIMULATION] Sending OTP to ${toEmail}: Code matches [${otp}]\n`);
+    console.log(`\n📧 [EMAIL SIMULATION] OTP for ${toEmail}: [${otp}]\n`);
     return true;
   }
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log(`📧 Verification email sent to ${toEmail}: ${info.messageId}`);
+    console.log(`📧 OTP email sent to ${toEmail} | Message ID: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error('❌ Failed to send verification email:', error.message);
-    // Fall back to simulator so registration doesn't break in dev if user has wrong config
-    console.log(`📧 [EMAIL SIMULATION FALLBACK] Verification code for ${toEmail}: [${otp}]`);
+    console.error(`❌ Failed to send OTP email to ${toEmail}: ${error.message}`);
+    console.log(`📧 [FALLBACK] OTP for ${toEmail}: [${otp}]`);
     return false;
   }
 };
 
 module.exports = { sendOTPEmail };
+

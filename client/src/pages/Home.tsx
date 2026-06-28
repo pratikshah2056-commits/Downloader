@@ -22,17 +22,17 @@ const Home: React.FC = () => {
   ];
 
   const platforms = [
-    { icon: <FaYoutube size={40} />, name: 'YouTube', color: '#ff0000', bg: 'rgba(255, 0, 0, 0.1)', url: 'https://youtube.com' },
-    { icon: <FaFacebook size={40} />, name: 'Facebook', color: '#1877f2', bg: 'rgba(24, 119, 242, 0.1)', url: 'https://facebook.com' },
-    { icon: <FaInstagram size={40} />, name: 'Instagram', color: '#e4405f', bg: 'rgba(228, 64, 95, 0.1)', url: 'https://instagram.com' },
-    { icon: <FaTiktok size={40} />, name: 'TikTok', color: '#00f2ea', bg: 'rgba(0, 242, 234, 0.1)', url: 'https://tiktok.com' },
-    { icon: <FaTwitter size={40} />, name: 'Twitter/X', color: '#1da1f2', bg: 'rgba(29, 161, 242, 0.1)', url: 'https://x.com' },
-    { icon: <FaVimeo size={40} />, name: 'Vimeo', color: '#1ab7ea', bg: 'rgba(26, 183, 234, 0.1)', url: 'https://vimeo.com' },
-    { icon: <FaReddit size={40} />, name: 'Reddit', color: '#ff4500', bg: 'rgba(255, 69, 0, 0.1)', url: 'https://reddit.com' },
-    { icon: <FaSoundcloud size={40} />, name: 'SoundCloud', color: '#ff5500', bg: 'rgba(255, 85, 0, 0.1)', url: 'https://soundcloud.com' },
-    { icon: <FaTwitch size={40} />, name: 'Twitch', color: '#9146ff', bg: 'rgba(145, 70, 255, 0.1)', url: 'https://twitch.tv' },
-    { icon: <FaPinterest size={40} />, name: 'Pinterest', color: '#bd081c', bg: 'rgba(189, 8, 28, 0.1)', url: 'https://pinterest.com' },
-    { icon: <FaLinkedin size={40} />, name: 'LinkedIn', color: '#0a66c2', bg: 'rgba(10, 102, 194, 0.1)', url: 'https://linkedin.com' },
+    { icon: <FaYoutube size={40} />, name: 'YouTube', color: '#ff0000', bg: 'rgba(255, 0, 0, 0.1)', url: 'https://youtube.com', active: true },
+    { icon: <FaFacebook size={40} />, name: 'Facebook', color: '#1877f2', bg: 'rgba(24, 119, 242, 0.1)', url: 'https://facebook.com', active: true },
+    { icon: <FaInstagram size={40} />, name: 'Instagram', color: '#e4405f', bg: 'rgba(228, 64, 95, 0.1)', url: 'https://instagram.com', active: true },
+    { icon: <FaTiktok size={40} />, name: 'TikTok', color: '#00f2ea', bg: 'rgba(0, 242, 234, 0.1)', url: 'https://tiktok.com', active: true },
+    { icon: <FaTwitter size={40} />, name: 'Twitter/X', color: '#1da1f2', bg: 'rgba(29, 161, 242, 0.1)', url: 'https://x.com', active: false },
+    { icon: <FaVimeo size={40} />, name: 'Vimeo', color: '#1ab7ea', bg: 'rgba(26, 183, 234, 0.1)', url: 'https://vimeo.com', active: false },
+    { icon: <FaReddit size={40} />, name: 'Reddit', color: '#ff4500', bg: 'rgba(255, 69, 0, 0.1)', url: 'https://reddit.com', active: false },
+    { icon: <FaSoundcloud size={40} />, name: 'SoundCloud', color: '#ff5500', bg: 'rgba(255, 85, 0, 0.1)', url: 'https://soundcloud.com', active: false },
+    { icon: <FaTwitch size={40} />, name: 'Twitch', color: '#9146ff', bg: 'rgba(145, 70, 255, 0.1)', url: 'https://twitch.tv', active: false },
+    { icon: <FaPinterest size={40} />, name: 'Pinterest', color: '#bd081c', bg: 'rgba(189, 8, 28, 0.1)', url: 'https://pinterest.com', active: false },
+    { icon: <FaLinkedin size={40} />, name: 'LinkedIn', color: '#0a66c2', bg: 'rgba(10, 102, 194, 0.1)', url: 'https://linkedin.com', active: false },
   ];
 
   const steps = [
@@ -192,14 +192,15 @@ const Home: React.FC = () => {
             </p>
           </motion.div>
 
+          {/* ── Main 4 Active Platforms ── */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             gap: '1.5rem',
-            maxWidth: '68rem',
-            margin: '0 auto',
+            maxWidth: '56rem',
+            margin: '0 auto 2.5rem',
           }}>
-            {platforms.map((p, i) => (
+            {platforms.filter(p => p.active).map((p, i) => (
               <motion.a
                 key={p.name}
                 href={p.url}
@@ -209,7 +210,7 @@ const Home: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.4 }}
-                whileHover={{ y: -8, scale: 1.05 }}
+                whileHover={{ y: -10, scale: 1.04 }}
                 whileTap={{ scale: 0.95 }}
                 className="glass-card"
                 style={{
@@ -219,12 +220,20 @@ const Home: React.FC = () => {
                   display: 'block',
                   textDecoration: 'none',
                   color: 'var(--color-text-primary)',
-                  transition: 'all 0.2s',
+                  border: `2px solid ${p.color}33`,
+                  position: 'relative',
+                  overflow: 'hidden',
                 }}
               >
+                {/* glow background on hover */}
                 <div style={{
-                  width: '4rem',
-                  height: '4rem',
+                  position: 'absolute', inset: 0,
+                  background: `radial-gradient(circle at 50% 0%, ${p.color}18, transparent 70%)`,
+                  pointerEvents: 'none',
+                }} />
+                <div style={{
+                  width: '5rem',
+                  height: '5rem',
                   borderRadius: 'var(--radius-lg)',
                   background: p.bg,
                   display: 'flex',
@@ -232,15 +241,72 @@ const Home: React.FC = () => {
                   justifyContent: 'center',
                   margin: '0 auto 1rem',
                   color: p.color,
+                  boxShadow: `0 0 20px ${p.color}33`,
                 }}>
                   {p.icon}
                 </div>
-                <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>{p.name}</h3>
+                <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>{p.name}</h3>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                  fontSize: '0.78rem', fontWeight: 600,
+                  color: p.color,
+                  background: `${p.color}18`,
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '9999px',
+                  border: `1px solid ${p.color}44`,
+                }}>
+                  ↗ Visit {p.name}
+                </span>
               </motion.a>
             ))}
           </div>
+
+          {/* ── Secondary Platforms ── */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+          >
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 500 }}>
+              Also supported:
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'center' }}>
+              {platforms.filter(p => !p.active).map((p, i) => (
+                <motion.a
+                  key={p.name}
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ scale: 1.08, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '9999px',
+                    background: p.bg,
+                    border: `1px solid ${p.color}33`,
+                    color: p.color,
+                    textDecoration: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <span style={{ fontSize: '1rem' }}>{p.icon}</span>
+                  {p.name}
+                </motion.a>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </section>
+
 
       {/* ─── Features Grid ─── */}
       <section className="section-spacing" style={{ background: 'var(--color-bg-secondary)' }}>

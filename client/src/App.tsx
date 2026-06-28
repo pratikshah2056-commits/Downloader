@@ -12,11 +12,13 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Profile from './pages/Profile';
 import About from './pages/About';
 import Privacy from './pages/Privacy';
+import Upcoming from './pages/Upcoming';
 
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -53,9 +55,11 @@ const App: React.FC = () => {
                   <Route path="/" element={<Home />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
 
                   <Route path="/about" element={<About />} />
                   <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/upcoming" element={<Upcoming />} />
 
                   {/* Protected Routes */}
                   <Route path="/dashboard" element={

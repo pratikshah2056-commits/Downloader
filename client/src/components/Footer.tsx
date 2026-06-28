@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiGithub, FiHeart } from 'react-icons/fi';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -33,9 +32,32 @@ const Footer: React.FC = () => {
               </div>
               <span className="gradient-text" style={{ fontWeight: 800, fontSize: '1.125rem' }}>MediaDL</span>
             </div>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', lineHeight: 1.6, marginBottom: '1rem' }}>
               Download videos and audio from your favorite platforms quickly and easily.
             </p>
+            {/* Download App Button */}
+            <a
+              href="http://localhost:5000/public/mediadl.apk"
+              download
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                background: 'var(--gradient-primary)',
+                borderRadius: 'var(--radius-full)',
+                color: 'white',
+                textDecoration: 'none',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
+                transition: 'opacity 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+            >
+              📱 Download App
+            </a>
           </div>
 
           {/* Quick Links */}
@@ -70,10 +92,28 @@ const Footer: React.FC = () => {
           <div>
             <h4 style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: '0.9rem', color: 'var(--color-text-primary)' }}>Supported Platforms</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {['YouTube', 'Facebook', 'Instagram', 'TikTok'].map((platform) => (
-                <span key={platform} style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                  {platform}
-                </span>
+              {[
+                { name: 'YouTube',   url: 'https://youtube.com' },
+                { name: 'Facebook',  url: 'https://facebook.com' },
+                { name: 'Instagram', url: 'https://instagram.com' },
+                { name: 'TikTok',   url: 'https://tiktok.com' },
+              ].map((platform) => (
+                <a
+                  key={platform.name}
+                  href={platform.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: 'var(--color-text-muted)',
+                    textDecoration: 'none',
+                    fontSize: '0.875rem',
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-accent-primary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-muted)')}
+                >
+                  {platform.name}
+                </a>
               ))}
             </div>
           </div>
@@ -109,23 +149,8 @@ const Footer: React.FC = () => {
           gap: '1rem',
         }}>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-            © {currentYear} MediaDL. All rights reserved.
+            © {currentYear} MediaDL from The Alpha 7. All rights reserved.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              Made with <FiHeart style={{ color: '#ef4444' }} /> for media lovers
-            </span>
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--color-text-muted)', transition: 'color 0.2s' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-primary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-muted)')}
-            >
-              <FiGithub size={18} />
-            </a>
-          </div>
         </div>
 
         {/* Legal Disclaimer */}

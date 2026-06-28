@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiMenu, FiX, FiSun, FiMoon, FiUser, FiLogOut, FiDownload, FiHome, FiInfo } from 'react-icons/fi';
+import { FiMenu, FiX, FiSun, FiMoon, FiUser, FiLogOut, FiDownload, FiHome, FiInfo, FiCalendar } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -22,6 +22,7 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { to: '/', label: 'Home', icon: <FiHome /> },
     { to: '/about', label: 'About', icon: <FiInfo /> },
+    { to: '/upcoming', label: 'Upcoming', icon: <FiCalendar /> },
   ];
 
   const authLinks = [

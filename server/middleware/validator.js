@@ -94,7 +94,7 @@ const downloadRules = [
   body('quality')
     .optional()
     .custom((value) => {
-      const allowed = ['144', '144p', '240', '240p', '360', '360p', '480', '480p', '720', '720p', '1080', '1080p', '1440', '1440p', '2160', '2160p', '4320', '4320p', 'best'];
+      const allowed = ['144', '144p', '240', '240p', '360', '360p', '480', '480p', '720', '720p', '1080', '1080p', '1440', '1440p', '2160', '2160p', '4320', '4320p', 'best', '4k', '2k'];
       if (!allowed.includes(value.toString().toLowerCase())) {
         throw new Error('Invalid quality option');
       }

@@ -21,6 +21,12 @@ interface ChangePasswordData {
   newPassword: string;
 }
 
+interface ResetPasswordData {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
 export const authService = {
   register: async (data: RegisterData) => {
     const response = await api.post('/auth/register', data);
@@ -47,6 +53,16 @@ export const authService = {
     return response.data;
   },
 
+  forgotPassword: async (email: string) => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  resetPassword: async (data: ResetPasswordData) => {
+    const response = await api.post('/auth/reset-password', data);
+    return response.data;
+  },
+
   getProfile: async () => {
     const response = await api.get('/auth/profile');
     return response.data;
@@ -62,3 +78,4 @@ export const authService = {
     return response.data;
   },
 };
+

@@ -1,14 +1,16 @@
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
 const seedAdmin = async () => {
   try {
-    const adminEmail = 'theaplha7nep@gmail.com';
+    const adminEmail = 'pratikshah2056@gmail.com';
     const existingAdmin = await User.findOne({ email: adminEmail });
 
     if (!existingAdmin) {
       await User.create({
-        username: 'admin',
+        username: 'pratikadmin',
         email: adminEmail,
         password: 'Ajit@777',
         role: 'admin',

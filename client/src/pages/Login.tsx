@@ -126,6 +126,14 @@ const Login: React.FC = () => {
                 style={{ paddingLeft: '2.75rem' }}
               />
             </div>
+            <div style={{ textAlign: 'right', marginTop: '0.375rem' }}>
+              <Link
+                to="/forgot-password"
+                style={{ fontSize: '0.8rem', color: 'var(--color-accent-primary)', textDecoration: 'none', fontWeight: 600 }}
+              >
+                Forgot Password?
+              </Link>
+            </div>
           </div>
 
           <motion.button
@@ -152,7 +160,6 @@ const Login: React.FC = () => {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
-            useOneTap
             shape="pill"
             theme="filled_blue"
             width="280px"

@@ -16,8 +16,13 @@ const authRoutes = require('./routes/auth');
 const downloadRoutes = require('./routes/download');
 const adminRoutes = require('./routes/admin');
 
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Serve static assets (like mobile APKs) from public folder
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // ─── Security Middleware ──────────────────────────────────────────
 app.use(helmet({

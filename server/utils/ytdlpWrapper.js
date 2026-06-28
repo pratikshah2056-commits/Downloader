@@ -169,12 +169,17 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
     // Build quality filter
     let formatFilter;
     if (!checkFfmpeg()) {
-      formatFilter = `best[ext=${format}]/best`;
+      if (quality === 'best') {
+        formatFilter = `best[ext=${format}]/best`;
+      } else {
+        const height = quality.replace('p', '');
+        formatFilter = `best[height<=${height}][ext=${format}]/best[height<=${height}]/best`;
+      }
     } else if (quality === 'best') {
       formatFilter = `bestvideo[ext=${format}]+bestaudio/best[ext=${format}]/bestvideo+bestaudio/best`;
     } else {
       const height = quality.replace('p', '');
-      formatFilter = `bestvideo[height<=${height}][ext=${format}]+bestaudio/bestvideo[height<=${height}]+bestaudio/best[height<=${height}]`;
+      formatFilter = `bestvideo[height<=${height}][ext=${format}]+bestaudio/bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`;
     }
 
     const outputTemplate = checkFfmpeg() 
@@ -259,8 +264,9 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
 
     let args;
     if (!checkFfmpeg()) {
+      // Without FFmpeg: just download best audio stream as-is
       args = [
-        '-f', 'bestaudio',
+        '-f', 'bestaudio/best',
         '--no-playlist',
         '--no-warnings',
         '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
@@ -273,7 +279,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
         '--audio-quality', qArg,
         '--no-playlist',
         '--no-warnings',
-        '-o', outputPath,
+        '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
         sanitizedUrl,
       ];
     }
