@@ -3,7 +3,25 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    // Bypass authentication: automatically authenticate as the seeded admin user
+    const authHeader = req.header('Authorization');
+
+    // 1. If there is a real token, try to verify it
+    if (authHeader && authHeader.startsWith('Bearer ') && authHeader !== 'Bearer mock-bypass-token') {
+      const token = authHeader.replace('Bearer ', '');
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (user) {
+          req.user = user;
+          req.token = token;
+          return next();
+        }
+      } catch (err) {
+        console.warn('Real token verification failed, falling back to bypass:', err.message);
+      }
+    }
+
+    // 2. Bypass authentication: automatically authenticate as the seeded admin user
     let user = await User.findOne({ email: 'pratikshah2056@gmail.com' });
     if (!user) {
       user = await User.findOne(); // Fallback to first user in database
@@ -23,7 +41,7 @@ const auth = async (req, res, next) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Authentication error during bypass.',
+      message: 'Authentication error.',
     });
   }
 };

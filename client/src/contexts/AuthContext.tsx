@@ -33,28 +33,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [user, setUser] = useState<User | null>(mockAdminUser);
   const [token, setToken] = useState<string | null>('mock-bypass-token');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load auth state from localStorage on mount (disabled for bypass)
+  // Load auth state from localStorage on mount
   useEffect(() => {
-    setIsLoading(false);
+    try {
+      const storedToken = localStorage.getItem('umd_token');
+      const storedUser = localStorage.getItem('umd_user');
+
+      if (storedToken && storedUser && storedToken !== 'mock-bypass-token') {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error('Error loading auth state:', error);
+      localStorage.removeItem('umd_token');
+      localStorage.removeItem('umd_user');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const login = useCallback((newToken: string, newUser: User) => {
     setToken(newToken);
     setUser(newUser);
+    localStorage.setItem('umd_token', newToken);
+    localStorage.setItem('umd_user', JSON.stringify(newUser));
   }, []);
 
   const logout = useCallback(() => {
-    // Keep logged in as mock admin on logout
+    localStorage.removeItem('umd_token');
+    localStorage.removeItem('umd_user');
     setToken('mock-bypass-token');
     setUser(mockAdminUser);
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem('umd_user', JSON.stringify(updatedUser));
-  }, []);
+    if (token !== 'mock-bypass-token') {
+      localStorage.setItem('umd_user', JSON.stringify(updatedUser));
+    }
+  }, [token]);
 
   return (
     <AuthContext.Provider

@@ -27,14 +27,14 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '340196864705-9c
 
 // Guard for administrator-only routes
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, user, isLoading } = useAuth();
+  const { isAuthenticated, user, token, isLoading } = useAuth();
 
   if (isLoading) {
     return null; // Let the global state loader manage it
   }
 
-  if (!isAuthenticated || user?.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+  if (!isAuthenticated || user?.role !== 'admin' || token === 'mock-bypass-token') {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
