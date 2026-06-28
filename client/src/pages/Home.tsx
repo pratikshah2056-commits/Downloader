@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiDownload, FiZap, FiShield, FiClock, FiMonitor, FiMusic } from 'react-icons/fi';
 import { 
@@ -7,10 +7,9 @@ import {
   FaVimeo, FaReddit, FaSoundcloud, FaTwitch, FaPinterest, FaLinkedin 
 } from 'react-icons/fa';
 import URLInput from '../components/URLInput';
-import { useAuth } from '../contexts/AuthContext';
 
 const Home: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   const features = [
     { icon: <FiZap />, title: 'Lightning Fast', description: 'Analyze and download media in seconds with our optimized backend.' },
@@ -147,30 +146,12 @@ const Home: React.FC = () => {
             </p>
           </motion.div>
 
-          {/* URL Input */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.5 }}
           >
-            {isAuthenticated ? (
-              <URLInput onAnalyze={() => {}} />
-            ) : (
-              <div>
-                <URLInput onAnalyze={() => {}} />
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.8 }}
-                  style={{ marginTop: '1rem', color: '#64748b', fontSize: '0.85rem' }}
-                >
-                  <Link to="/register" style={{ color: 'var(--color-accent-primary)', textDecoration: 'none', fontWeight: 600 }}>
-                    Create a free account
-                  </Link>{' '}
-                  to start downloading
-                </motion.p>
-              </div>
-            )}
+            <URLInput onAnalyze={(url) => navigate(`/dashboard?url=${encodeURIComponent(url)}`)} />
           </motion.div>
         </div>
       </section>
@@ -432,19 +413,27 @@ const Home: React.FC = () => {
             Ready to Start Downloading?
           </h2>
           <p style={{ color: '#94a3b8', marginBottom: '2rem', fontSize: '1.05rem' }}>
-            Create a free account and start downloading media from your favorite platforms.
+            Start downloading media from your favorite platforms instantly.
           </p>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to={isAuthenticated ? '/dashboard' : '/register'}>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="btn-primary" style={{ fontSize: '1.05rem', padding: '0.875rem 2.5rem' }}>
-                {isAuthenticated ? 'Go to Dashboard' : 'Get Started Free'}
-              </motion.button>
-            </Link>
-            <Link to="/about">
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="btn-secondary" style={{ fontSize: '1.05rem', padding: '0.875rem 2.5rem' }}>
-                Learn More
-              </motion.button>
-            </Link>
+            <motion.button 
+              onClick={() => navigate('/dashboard')}
+              whileHover={{ scale: 1.05 }} 
+              whileTap={{ scale: 0.95 }} 
+              className="btn-primary" 
+              style={{ fontSize: '1.05rem', padding: '0.875rem 2.5rem', cursor: 'pointer' }}
+            >
+              Go to Downloader
+            </motion.button>
+            <motion.button 
+              onClick={() => navigate('/about')}
+              whileHover={{ scale: 1.05 }} 
+              whileTap={{ scale: 0.95 }} 
+              className="btn-secondary" 
+              style={{ fontSize: '1.05rem', padding: '0.875rem 2.5rem', cursor: 'pointer' }}
+            >
+              Learn More
+            </motion.button>
           </div>
         </motion.div>
       </section>

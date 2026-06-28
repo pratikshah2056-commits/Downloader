@@ -3,27 +3,25 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    // Fully bypass authentication: automatically authenticate as the default admin user
-    let user = await User.findOne({ email: 'pratikshah2056@gmail.com' });
-    if (!user) {
-      user = await User.findOne(); // Fallback to first user in database
+    const header = req.header('Authorization') || req.headers.authorization;
+    const token = header?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    const user = await User.findById(decoded.id || decoded._id);
     if (!user) {
-      // Create a dummy user if none exists in db
-      user = await User.create({
-        username: 'pratikadmin',
-        email: 'pratikshah2056@gmail.com',
-        role: 'admin',
-        isVerified: true,
-      });
+      return res.status(401).json({ success: false, message: 'Authentication required.' });
     }
+
     req.user = user;
-    req.token = 'mock-bypass-token';
+    req.token = token;
     next();
   } catch (error) {
-    res.status(500).json({
+    res.status(401).json({
       success: false,
-      message: 'Authentication error.',
+      message: 'Invalid token.',
     });
   }
 };

@@ -22,23 +22,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const mockAdminUser: User = {
-    id: 'mock-admin-id',
-    username: 'pratikadmin',
-    email: 'pratikshah2056@gmail.com',
-    role: 'admin',
-    createdAt: new Date().toISOString(),
-    isVerified: true
-  };
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [user, setUser] = useState<User | null>(mockAdminUser);
-  const [token, setToken] = useState<string | null>('mock-bypass-token');
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load auth state from localStorage on mount (disabled for bypass)
   useEffect(() => {
-    localStorage.setItem('umd_token', 'mock-bypass-token');
-    localStorage.setItem('umd_user', JSON.stringify(mockAdminUser));
     setIsLoading(false);
   }, []);
 
@@ -48,9 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
-    // Keep logged in as mock admin on logout
-    setToken('mock-bypass-token');
-    setUser(mockAdminUser);
+    setToken(null);
+    setUser(null);
   }, []);
 
   const updateUser = useCallback((updatedUser: User) => {

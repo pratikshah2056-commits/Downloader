@@ -47,18 +47,7 @@ const downloadVideo = async (req, res, next) => {
     const result = await ytdlp.downloadVideo(url, format, quality);
     filePath = result.filePath;
 
-    // Save to download history
-    await Download.create({
-      userId: req.user._id,
-      platform: mediaInfo.platform || ytdlp.detectPlatform(url),
-      url,
-      title: mediaInfo.title,
-      thumbnail: mediaInfo.thumbnail,
-      format,
-      quality,
-      fileSize: result.fileSize,
-      duration: mediaInfo.duration,
-    });
+    // History logging disabled in public mode
 
     // Sanitize filename for Content-Disposition
     const safeTitle = (mediaInfo.title || 'download')
@@ -123,18 +112,7 @@ const downloadAudio = async (req, res, next) => {
     const result = await ytdlp.downloadAudio(url, format, quality);
     filePath = result.filePath;
 
-    // Save to download history
-    await Download.create({
-      userId: req.user._id,
-      platform: mediaInfo.platform || ytdlp.detectPlatform(url),
-      url,
-      title: mediaInfo.title,
-      thumbnail: mediaInfo.thumbnail,
-      format,
-      quality: quality || 'audio',
-      fileSize: result.fileSize,
-      duration: mediaInfo.duration,
-    });
+    // History logging disabled in public mode
 
     // Sanitize filename
     const safeTitle = (mediaInfo.title || 'download')
@@ -186,6 +164,20 @@ const downloadAudio = async (req, res, next) => {
  */
 const getHistory = async (req, res, next) => {
   try {
+    if (!req.user) {
+      return res.json({
+        success: true,
+        data: {
+          downloads: [],
+          pagination: {
+            page: 1,
+            limit: 20,
+            total: 0,
+            pages: 0,
+          },
+        },
+      });
+    }
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
@@ -233,6 +225,12 @@ const getHistory = async (req, res, next) => {
  */
 const deleteHistoryItem = async (req, res, next) => {
   try {
+    if (!req.user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Download history entry not found.',
+      });
+    }
     const download = await Download.findOneAndDelete({
       _id: req.params.id,
       userId: req.user._id,
@@ -260,6 +258,16 @@ const deleteHistoryItem = async (req, res, next) => {
  */
 const getStats = async (req, res, next) => {
   try {
+    if (!req.user) {
+      return res.json({
+        success: true,
+        data: {
+          totalDownloads: 0,
+          platformStats: [],
+          recentDownloads: [],
+        },
+      });
+    }
     const [totalDownloads, platformStats, recentDownloads] = await Promise.all([
       Download.countDocuments({ userId: req.user._id }),
       Download.aggregate([

@@ -97,9 +97,7 @@ const getMediaInfo = (url) => {
       sanitizedUrl,
     ];
 
-    if (detectPlatform(url) === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android');
-    }
+
 
     execFile('yt-dlp', args, { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
@@ -194,9 +192,7 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
       sanitizedUrl,
     ];
 
-    if (detectPlatform(url) === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android');
-    }
+
 
     if (checkFfmpeg()) {
       args.unshift('--merge-output-format', format);
@@ -284,9 +280,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
       ];
     }
 
-    if (detectPlatform(url) === 'youtube') {
-      args.push('--extractor-args', 'youtube:player_client=android');
-    }
+
 
     const process = spawn('yt-dlp', args, { timeout: 300000 });
 
