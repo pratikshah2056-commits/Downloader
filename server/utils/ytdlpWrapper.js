@@ -17,7 +17,25 @@ const checkGlobalYtdlp = () => {
 
 const BIN_DIR = path.resolve(__dirname, '../bin');
 const BIN_PATH = path.join(BIN_DIR, os.platform() === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+const COOKIES_PATH = path.resolve(__dirname, '../cookies.txt');
+const TEMP_COOKIES_PATH = path.resolve(__dirname, '../bin/cookies.txt');
 let binaryPathPromise = null;
+
+const getCookieArg = () => {
+  if (fs.existsSync(COOKIES_PATH)) {
+    return ['--cookies', COOKIES_PATH];
+  }
+  if (process.env.YT_COOKIES_CONTENT) {
+    if (!fs.existsSync(TEMP_COOKIES_PATH)) {
+      if (!fs.existsSync(BIN_DIR)) {
+        fs.mkdirSync(BIN_DIR, { recursive: true });
+      }
+      fs.writeFileSync(TEMP_COOKIES_PATH, process.env.YT_COOKIES_CONTENT, 'utf8');
+    }
+    return ['--cookies', TEMP_COOKIES_PATH];
+  }
+  return [];
+};
 
 const getBinaryPath = () => {
   if (binaryPathPromise) return binaryPathPromise;
@@ -148,6 +166,7 @@ const getMediaInfo = (url) => {
         '--no-download',
         '--no-warnings',
         '--no-playlist',
+        ...getCookieArg(),
         sanitizedUrl,
       ];
 
@@ -245,6 +264,7 @@ const downloadVideo = (url, format = 'mp4', quality = 'best') => {
         '-f', formatFilter,
         '--no-playlist',
         '--no-warnings',
+        ...getCookieArg(),
         '-o', outputTemplate,
         sanitizedUrl,
       ];
@@ -325,6 +345,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
           '-f', 'bestaudio/best',
           '--no-playlist',
           '--no-warnings',
+          ...getCookieArg(),
           '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
           sanitizedUrl,
         ];
@@ -335,6 +356,7 @@ const downloadAudio = (url, format = 'mp3', quality = 'best') => {
           '--audio-quality', qArg,
           '--no-playlist',
           '--no-warnings',
+          ...getCookieArg(),
           '-o', path.join(DOWNLOAD_DIR, `${fileId}.%(ext)s`),
           sanitizedUrl,
         ];

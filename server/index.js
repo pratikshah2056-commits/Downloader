@@ -1,5 +1,11 @@
 require('dotenv').config();
 
+// Force DNS resolution to prefer IPv4 (fixes IPv6 ENETUNREACH errors on Render/other hostings)
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -20,6 +26,9 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust proxy (necessary for express-rate-limit behind Render/Vercel reverse proxies)
+app.set('trust proxy', 1);
 
 // Serve static assets (like mobile APKs) from public folder
 app.use('/public', express.static(path.join(__dirname, 'public')));
